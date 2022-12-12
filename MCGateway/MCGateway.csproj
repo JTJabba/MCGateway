@@ -1,0 +1,53 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+	<PropertyGroup>
+		<TargetFramework>net7.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<IsPackable>true</IsPackable>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageId>MCGateway</PackageId>
+		<Title>MCGateway</Title>
+		<Version>0.0.64</Version>
+		<Authors>JTJabba</Authors>
+		<UserSecretsId>dotnet-ReverseProxy-1225C1A2-DAF7-4A65-B78C-C92ADFBE9D03</UserSecretsId>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<LangVersion>preview</LangVersion>
+	</PropertyGroup>
+
+	<!--Preview needed for C#11 static abstract methods. Search for RequiresPreviewFeatures-->
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+		<LangVersion>preview</LangVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<AdditionalFiles Include="settings.MCGateway.template.json" CopyToOutputDirectory="Always" />
+		<AdditionalFiles Include="translations.MCGateway.template.json" CopyToOutputDirectory="Always" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="DotNetZip" Version="1.16.0" />
+		<PackageReference Include="FastEnum" Version="1.8.0" />
+		<PackageReference Include="JTJabba.EasyConfig" Version="1.1.0" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.1" />
+		<PackageReference Include="MiNET.fnbt" Version="1.0.22" />
+		<PackageReference Include="JTJabba.Utils" Version="0.0.13" />
+		<PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<TieredCompilation>false</TieredCompilation>
+		<OutputType>Library</OutputType>
+	</PropertyGroup>
+
+</Project>
+
+<!--TODO:
+
+replace shit POC caching method in EarlyConnectionHandler with a uint64 checksum of bytes sequence
+as primary key in dictionary that gets looked up and confirmed against if there's a hit
+
+-->

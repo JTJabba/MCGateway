@@ -1,0 +1,13 @@
+﻿{
+  "DefaultLanguage": "English",
+  "Translations": [
+    {
+      "Language": "English",
+      "DisconnectMaxGatewayConnections": "Proxy full",
+      "DisconnectPlayerAlreadyOnline": "Player already online!",
+      "DisconnectSecureProfileRequired": "Secure profile required!",
+      "DisconnectAuthenticationFail": "Authentication with Mojang Failed!",
+      "DisconnectBackendConnectionFail": "Couldn't connect to backend server :("
+    }
+  ]
+}

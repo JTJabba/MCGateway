@@ -1,0 +1,25 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug",
+      "Microsoft.Hosting.Lifetime": "Debug"
+    }
+  },
+  "ListeningPort": 25575,
+  "BufferSizes": { //BufferSizes should be kept under large object heap threshold (default 85kB)
+    "ClientBound": 65536,
+    "ServerBound": 16384
+  },
+  "KeepAlive": {
+    "ClientInitialTimeoutMs": 5000, // Used during handshake and status
+    "ClientEnstablishedTimeoutMs": 20000, // 20 default timeout for MC connections
+    "ClientKeepAliveFrequencyMs": 5000,
+    "ServerTimeoutMs": 5000 // Backend server timeout. Should be lower so connections can be quickly rerouted on a backend failure
+  },
+  "CommonClientConnectionStrings": [ "127.0.0.1" ], //Cached to reduce string allocation from loginRequests. Needs to match what client would send
+  "yggdrasil_session_pubkey_Path": "Resources/yggdrasil_session_pubkey.der",
+  "OnlineMode": true, // Turn off to completely disable authentication
+  "EnforceSecureProfile": false, // Whether client must provide public key signed by mojang for chat signing
+  "CompressionThreshold": -1,
+  "CompressionLevel": 1 // 1-9
+}
