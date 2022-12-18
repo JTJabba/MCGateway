@@ -8,7 +8,7 @@
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>MCGateway</PackageId>
 		<Title>MCGateway</Title>
-		<Version>0.0.64</Version>
+		<Version>0.0.77</Version>
 		<Authors>JTJabba</Authors>
 		<UserSecretsId>dotnet-ReverseProxy-1225C1A2-DAF7-4A65-B78C-C92ADFBE9D03</UserSecretsId>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -29,7 +29,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="DotNetZip" Version="1.16.0" />
 		<PackageReference Include="FastEnum" Version="1.8.0" />
 		<PackageReference Include="JTJabba.EasyConfig" Version="1.1.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.1" />
@@ -50,4 +49,17 @@
 replace shit POC caching method in EarlyConnectionHandler with a uint64 checksum of bytes sequence
 as primary key in dictionary that gets looked up and confirmed against if there's a hit
 
+need to get stopListening implemented correctly
+
+need to check everywhere _compressionThreshold of 0 doesn't disable compression
+
+test if MCClientConnection(TcpClient) constructor is internal. If so make private
+
+test if nested class AuthResponse is internal. If so make private
+
+need to decide how to deal with UUID in offline mode. MCClientConnection currently generates random one
+
+look into writing packets to stream together for pre play state stuff
+
+fix varint too big bug
 -->

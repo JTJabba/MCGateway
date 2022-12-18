@@ -10,46 +10,51 @@ namespace MCGateway.Protocol.V759
     [SkipLocalsInit]
     public ref struct Packet
     {
-        public readonly int PacketLength { get; init; }
-        public readonly int PacketID { get; init; }
-        private readonly byte[] _packetBytes;
+        public const int SCRATCHSPACE = 6;
 
-        public Span<byte> LengthPrefixedPacketBytes5Offset
-        {
-            get => _packetBytes.AsSpan(0, PacketLength + 5);
-        }
+        private bool _disposed = false;
+
         /// <summary>
-        /// CursorPosition is initialized to zero, before <c>PacketID</c>. Use MoveCursor to adjust cursor (Compatibility in using blocks)
+        /// Stores scratchspace bytes, decompressed packetID and data, then optionally packet in compressed form
+        /// </summary>
+        public readonly byte[] Data { get; init; }
+        /// <summary>
+        /// Compressed packet offset (or index after packet data) in Data
+        /// </summary>
+        public readonly int RawCompressedPacketOffset { get; init; }
+        /// <summary>
+        /// Zero if no compressed data
+        /// </summary>
+        public readonly int RawCompressedPacketLength { get; init; }
+        public readonly int PacketIDAndDataLength { get => RawCompressedPacketOffset - SCRATCHSPACE; }
+        public readonly int PacketID { get; init; }
+        
+        /// <summary>
+        /// CursorPosition is initialized at beginning of data, after <c>PacketID</c>.
+        /// Use MoveCursor to adjust cursor (Compatibility in using blocks)
         /// </summary>
         public int CursorPosition { get; private set; }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void MoveCursor(int x) => CursorPosition += x;
 
-        /// <summary>
-        /// Initializes packet with CursorPosition after packetID
-        /// <c>byte[] packetBytes</c> MUST be rented from ArrayPool Shared, and contain packetLength, packetID and data.
-        /// All packets need to be disposed.
-        /// </summary>
-        public Packet(byte[] lengthPrefixedPacketBytes5Offset)
-        {
-            int offset = 5;
-            PacketLength = ReadVarInt(lengthPrefixedPacketBytes5Offset, ref offset);
-            PacketID = ReadVarInt(lengthPrefixedPacketBytes5Offset, ref offset);
-            CursorPosition = offset;
-            _packetBytes = lengthPrefixedPacketBytes5Offset;
-        }
 
         /// <summary>
-        /// Initializes packet with CursorPosition at dataOffset
-        /// <c>byte[] packetBytes</c> MUST be rented from ArrayPool Shared, and contain packetLength, packetID and data.
-        /// All packets need to be disposed.
+        /// <c>byte[] data</c> MUST be rented from ArrayPool Shared.
+        /// Should contain PacketID + data starting at Packet.SCRATCHSPACE,
+        /// and optionally a raw compressed packet including packet length prefix
         /// </summary>
-        public Packet(byte[] lengthPrefixedPacketBytes5Offset, int packetLength, int packetID, int headerLength)
+        /// <param name="data"></param>
+        /// <param name="rawCompressedPacketOffset"></param>
+        /// <param name="rawCompressedPacketLength"></param>
+        /// <param name="packetID"></param>
+        /// <param name="packetIDLength"></param>
+        public Packet(byte[] data, int rawCompressedPacketOffset, int rawCompressedPacketLength, int packetID, int packetIDLength)
         {
-            PacketLength = packetLength;
+            Data = data;
+            RawCompressedPacketOffset = rawCompressedPacketOffset;
+            RawCompressedPacketLength = rawCompressedPacketLength;
             PacketID = packetID;
-            CursorPosition = headerLength + 5;
-            _packetBytes = lengthPrefixedPacketBytes5Offset;
+            CursorPosition = SCRATCHSPACE + packetIDLength;
         }
 
 
@@ -126,6 +131,28 @@ namespace MCGateway.Protocol.V759
             }
         }
 
+        /// <summary>
+        /// Writes VarInt to buffer.
+        /// </summary>
+        /// <returns>The number of bytes written</returns>
+        public static int WriteVarInt(Span<byte> buffer, int value)
+        {
+            const int SEGMENT_MASK = 0x7F;
+            const int CONTINUE_MASK = 0x80;
+
+            int bytesWritten = 0;
+            while (true)
+            {
+                if ((value & 0xFFFFFF80) == 0)
+                {
+                    buffer[bytesWritten++] = (byte)value;
+                    return bytesWritten;
+                }
+                buffer[bytesWritten++] = (byte)(value & SEGMENT_MASK | CONTINUE_MASK);
+                value >>>= 7;
+            }
+        }
+
         /// <returns>The length in bytes of the int as a VarInt</returns>
         public static int GetVarIntLength(int value)
         {
@@ -154,25 +181,25 @@ namespace MCGateway.Protocol.V759
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte ReadAngle()
         {
-            return _packetBytes[CursorPosition++];
+            return Data[CursorPosition++];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool ReadBool()
         {
-            return _packetBytes[CursorPosition++] == 1;
+            return Data[CursorPosition++] == 1;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte ReadByte()
         {
-            return _packetBytes[CursorPosition++];
+            return Data[CursorPosition++];
         }
 
         // Should be used or copied elsewhere before Dispose is called
         public ReadOnlySpan<byte> ReadBytes(int count)
         {
-            var bytes = _packetBytes.AsSpan(CursorPosition, count);
+            var bytes = Data.AsSpan(CursorPosition, count);
             CursorPosition += count;
             return bytes;
         }
@@ -186,7 +213,7 @@ namespace MCGateway.Protocol.V759
         public double ReadDouble()
         {
             var value = BinaryPrimitives.ReadDoubleBigEndian(
-                _packetBytes.AsSpan(CursorPosition));
+                Data.AsSpan(CursorPosition));
             CursorPosition += 8;
             return value;
         }
@@ -199,7 +226,7 @@ namespace MCGateway.Protocol.V759
         public unsafe float ReadFloat()
         {
             var value = BinaryPrimitives.ReadInt32BigEndian(
-                _packetBytes.AsSpan(CursorPosition));
+                Data.AsSpan(CursorPosition));
             CursorPosition += 4;
             return *(float*)&value;
         }
@@ -212,7 +239,7 @@ namespace MCGateway.Protocol.V759
         public int ReadInt()
         {
             var value = BinaryPrimitives.ReadInt32BigEndian(
-                _packetBytes.AsSpan(CursorPosition));
+                Data.AsSpan(CursorPosition));
             CursorPosition += 4;
             return value;
         }
@@ -220,7 +247,7 @@ namespace MCGateway.Protocol.V759
         public long ReadLong()
         {
             var value = BinaryPrimitives.ReadInt64BigEndian(
-                _packetBytes.AsSpan(CursorPosition));
+                Data.AsSpan(CursorPosition));
             CursorPosition += 8;
             return value;
         }
@@ -233,7 +260,7 @@ namespace MCGateway.Protocol.V759
         public Position ReadPosition()
         {
             var value = BinaryPrimitives.ReadUInt64BigEndian(
-                _packetBytes.AsSpan(CursorPosition));
+                Data.AsSpan(CursorPosition));
             CursorPosition += 8;
             return new Position(value);
         }
@@ -241,7 +268,7 @@ namespace MCGateway.Protocol.V759
         public short ReadShort()
         {
             var value = BinaryPrimitives.ReadInt16BigEndian(
-                _packetBytes.AsSpan(CursorPosition));
+                Data.AsSpan(CursorPosition));
             CursorPosition += 2;
             return value;
         }
@@ -288,14 +315,14 @@ namespace MCGateway.Protocol.V759
         public ushort ReadUShort()
         {
             var value = BinaryPrimitives.ReadUInt16BigEndian(
-                _packetBytes.AsSpan(CursorPosition));
+                Data.AsSpan(CursorPosition));
             CursorPosition += 2;
             return value;
         }
 
         public Guid ReadUUID()
         {
-            var value = new Guid(_packetBytes.AsSpan(CursorPosition));
+            var value = new Guid(Data.AsSpan(CursorPosition));
             CursorPosition += 16;
             return value;
         }
@@ -311,7 +338,28 @@ namespace MCGateway.Protocol.V759
 
             while (true)
             {
-                currentByte = _packetBytes[CursorPosition++];
+                currentByte = Data[CursorPosition++];
+                value |= (currentByte & SEGMENT_MASK) << length;
+                if ((currentByte & CONTINUE_MASK) == 0) return value;
+                length += 7;
+                if (length >= MAX_VARINT_LENGTH) throw new InvalidDataException("VarInt too big");
+            }
+        }
+
+        public int ReadVarInt(out int read)
+        {
+            const int SEGMENT_MASK = 0x7F;
+            const int CONTINUE_MASK = 0x80;
+            const int MAX_VARINT_LENGTH = 32;
+            int value = 0;
+            int length = 0;
+            read = 0;
+            int currentByte;
+
+            while (true)
+            {
+                currentByte = Data[CursorPosition++];
+                ++read;
                 value |= (currentByte & SEGMENT_MASK) << length;
                 if ((currentByte & CONTINUE_MASK) == 0) return value;
                 length += 7;
@@ -324,12 +372,19 @@ namespace MCGateway.Protocol.V759
             throw new NotImplementedException();
         }
 
-        /// <summary>
-        /// This method must only be called once
-        /// </summary>
+
         public void Dispose()
         {
-            ArrayPool<byte>.Shared.Return(_packetBytes);
+            Dispose(true);
+        }
+        void Dispose(bool disposing)
+        {
+            if (_disposed) return;
+            if (disposing)
+            {
+                ArrayPool<byte>.Shared.Return(Data);
+            }
+            _disposed = true;
         }
     }
 }

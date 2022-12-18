@@ -3,11 +3,7 @@ using MCGateway.Protocol.V759.DataTypes;
 using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.X509;
-using Org.BouncyCastle.Crypto.IO;
-using System;
 using System.Buffers;
-using System.Diagnostics;
-using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
@@ -24,20 +20,19 @@ namespace MCGateway.Protocol.V759
     public sealed class MCClientConnection<ConnectionCallback> : MCConnection, IMCClientConnection, IClientBoundReceiver
         where ConnectionCallback : IMCClientConnectionCallback
     {
-        private readonly ILogger _logger = GatewayLogging.CreateLogger<MCClientConnection<ConnectionCallback>>();
-        private readonly bool _loggedIn = false;
+        readonly ILogger _logger = GatewayLogging.CreateLogger<MCClientConnection<ConnectionCallback>>();
+        readonly bool _loggedIn = false;
         [RequiresPreviewFeatures]
-        private readonly IMCClientConnectionCallback _callback;
+        readonly IMCClientConnectionCallback _callback;
 
-        private static readonly RSACryptoServiceProvider RSAProvider = new(1024);
-        private static readonly byte[] RSAPublicKey;
+        static readonly RSACryptoServiceProvider RSAProvider = new(1024);
+        static readonly byte[] RSAPublicKey;
 
         /// <summary>
         /// Contains all bytes for encryption request except verify token
         /// </summary>
-        private static readonly byte[] EncryptionRequestHeader;
-
-        private static readonly byte[] SetCompressionPacket;
+        static readonly byte[] EncryptionRequestHeader;
+        static readonly byte[] SetCompressionPacket;
 
         public override string Username { get; init; }
         public override Guid UUID { get; init; }
@@ -78,7 +73,8 @@ namespace MCGateway.Protocol.V759
 
 #pragma warning disable CS8618 // Object wont be returned from public method if it isn't valid
         [RequiresPreviewFeatures]
-        private MCClientConnection(TcpClient tcpClient) : base(tcpClient, Config.BufferSizes.ServerBound)
+        MCClientConnection(TcpClient tcpClient)
+            : base(tcpClient, Config.BufferSizes.ServerBound, (ulong)DateTime.UtcNow.Ticks)
 #pragma warning restore CS8618
         {
             // Need to do login process and get client to play state
@@ -86,13 +82,19 @@ namespace MCGateway.Protocol.V759
             {
                 // Read login request
                 {
-                    int packetLength = ReadVarInt();
-                    using var loginRequest = new Packet(
-                        packetLength,
-                        ReadBytes(packetLength));
-                    if (GatewayLogging.InDebug) _logger.LogDebug("Recieved login request");
-                    int PacketID = loginRequest.ReadByte();
-                    GatewayLogging.DebugAssertPacketID(0x00, PacketID);
+                    using var loginRequest = ReadPacketLogin();
+
+                    if (GatewayConfig.Debug.CheckPacketIDsDuringLogin)
+                    {
+                        if (loginRequest.PacketID != 0x00)
+                        {
+                            GatewayLogging.LogPacket(
+                                _logger, LogLevel.Debug, this,
+                                "Invalid packet ID. Expecting 0x00",
+                                loginRequest.PacketID);
+                            throw new InvalidDataException();
+                        }
+                    }
 
                     Username = loginRequest.ReadString(16);
 
@@ -112,145 +114,182 @@ namespace MCGateway.Protocol.V759
                     // Ignore rest of packet (optional client provided UUID)
                 }
 
-                // Send encryption request
-                Span<byte> verifyTokenBytes = stackalloc byte[4];
-                ThreadStatics.Random.NextBytes(verifyTokenBytes);
+                string? skin = null;
+                if (Config.OnlineMode)
                 {
-                    Span<byte> bytes = stackalloc byte[173];
-                    EncryptionRequestHeader.CopyTo(bytes);
-                    verifyTokenBytes.CopyTo(bytes[169..]);
-                    _stream.Write(bytes);
-                    if (GatewayLogging.InDebug) _logger.LogDebug("Sent encryption request");
-                }
-
-                // Read encryption response
-                byte[] sharedKey;
-                {
+                    // Send encryption request
+                    Span<byte> verifyTokenBytes = stackalloc byte[4];
+                    ThreadStatics.Random.NextBytes(verifyTokenBytes);
                     {
-                        int packetLength = ReadVarInt();
-                        using var encryptionResponse = new Packet(
-                            packetLength,
-                            ReadBytes(packetLength));
-                        if (GatewayLogging.InDebug) _logger.LogDebug("Received encryption response with packet length {len}", encryptionResponse.PacketLength);
-
-                        int PacketID = encryptionResponse.ReadByte();
-                        if (GatewayLogging.InDebug) _logger.LogDebug("Received packet ID {id}", PacketID);
-                        GatewayLogging.DebugAssertPacketID(0x01, PacketID);
-
-                        encryptionResponse.MoveCursor(2); // Skip key length, always 128
-                        sharedKey = RSAProvider.Decrypt(encryptionResponse.ReadBytes(128).ToArray(), false);
-                        if (encryptionResponse.ReadBool()) // Has verify token
-                        {
-                            encryptionResponse.MoveCursor(1);
-                            if (!encryptionResponse.ReadBytes(4).SequenceEqual(verifyTokenBytes)) return;
-                        }
+                        Span<byte> bytes = stackalloc byte[173];
+                        EncryptionRequestHeader.CopyTo(bytes);
+                        verifyTokenBytes.CopyTo(bytes[169..]);
+                        _stream.Write(bytes);
+                        if (GatewayLogging.InDebug) _logger.LogDebug("Sent encryption request");
                     }
-                }
 
-                // Wrap netStream in AesCfb8Stream to handle encryption
-                if (GatewayLogging.InDebug) _logger.LogDebug("Enabling encryption");
-                _stream = FastAesCfb8Stream.IsSupported ? new FastAesCfb8Stream(_stream, sharedKey) : new AesCfb8Stream(_stream, sharedKey);
-
-                // Get auth response from Mojang
-                AuthResponse? authResponse;
-                {
-                    // Get hash
-                    if (GatewayLogging.InDebug) _logger.LogDebug("Building auth hash");
-                    using var sha1 = SHA1.Create();
-                    sha1.TransformBlock(sharedKey, 0, sharedKey.Length, null, 0);
-                    sha1.TransformBlock(RSAPublicKey, 0, RSAPublicKey.Length, null, 0);
-                    // Use separate final transform with empty array to avoid unnecessary allocation and copy to the array it returns
-                    sha1.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
-                    byte[] hash = sha1.Hash!;
-
-                    bool negative = (hash[0] & 0x80) == 0x80;
-                    if (negative) // little endian twos complement
+                    // Read encryption response
+                    byte[] sharedKey;
                     {
-                        int i;
-                        bool carry = true;
-                        for (i = hash.Length - 1; i >= 0; --i)
                         {
-                            hash[i] = (byte)~hash[i];
-                            if (carry)
+                            using var encryptionResponse = ReadPacketLogin();
+
+                            if (GatewayConfig.Debug.CheckPacketIDsDuringLogin)
                             {
-                                carry = hash[i] == 0xFF;
-                                ++hash[i];
+                                if (encryptionResponse.PacketID != 0x01)
+                                {
+                                    GatewayLogging.LogPacket(
+                                        _logger, LogLevel.Debug, this,
+                                        "Invalid packet ID. Expecting 0x01",
+                                        encryptionResponse.PacketID);
+                                    throw new InvalidDataException();
+                                }
+                            }
+
+                            encryptionResponse.MoveCursor(2); // Skip key length, always 128
+                            sharedKey = RSAProvider.Decrypt(encryptionResponse.ReadBytes(128).ToArray(), false);
+                            if (encryptionResponse.ReadBool()) // Has verify token
+                            {
+                                encryptionResponse.MoveCursor(1);
+                                if (!encryptionResponse.ReadBytes(4).SequenceEqual(verifyTokenBytes)) return;
                             }
                         }
                     }
 
-                    using var preServerHash = new UnsafeString(Convert.ToHexString(hash));
-                    preServerHash.TrimStart('0');
-                    using var serverHash = negative ? "-" + preServerHash : preServerHash;
+                    // Wrap netStream in AesCfb8Stream to handle encryption
+                    if (GatewayLogging.InDebug) _logger.LogDebug("Enabling encryption");
+                    _stream =
+                        FastAesCfb8Stream.IsSupported
+                        ? new FastAesCfb8Stream(_stream, sharedKey)
+                        : new AesCfb8Stream(_stream, sharedKey);
 
-                    if (GatewayLogging.InDebug) _logger.LogDebug("Building auth request");
-                    using UnsafeString requestUrl = new("https://sessionserver.mojang.com/session/minecraft/hasJoined?username=", 127);
-                    requestUrl.Append(Username);
-                    requestUrl.Append("&serverId=");
-                    requestUrl.Append(serverHash);
-
-                    if (GatewayLogging.InDebug) _logger.LogDebug("Authenticating with Mojang");
-
-                    // Make auth request
-                    using var httpClient = new HttpClient();
-                    using var httpRequest = httpClient.GetAsync(requestUrl.ToString());
-
-                    // Wait for response or timeout
-                    httpRequest.Wait(10_000);
-                    if (!httpRequest.IsCompleted) LoginDisconnect(Translation.DefaultTranslation.DisconnectAuthenticationTimeout);
-
-                    using var httpResponse = httpRequest.Result;
-
-                    string? responseString = httpResponse.Content.ReadAsStringAsync().Result;
-                    if (responseString is null || responseString.Length == 0)
+                    // Get auth response from Mojang
+                    AuthResponse? authResponse;
                     {
-                        if (GatewayLogging.InDebug) _logger.LogDebug("Got null or zero length response");
+                        // Get hash
+                        if (GatewayLogging.InDebug) _logger.LogDebug("Building auth hash");
+                        using var sha1 = SHA1.Create();
+                        sha1.TransformBlock(sharedKey, 0, sharedKey.Length, null, 0);
+                        sha1.TransformBlock(RSAPublicKey, 0, RSAPublicKey.Length, null, 0);
+                        // Use separate final transform with empty array to avoid unnecessary allocation and copy to the array it returns
+                        sha1.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+                        byte[] hash = sha1.Hash!;
+
+                        bool negative = (hash[0] & 0x80) == 0x80;
+                        if (negative) // little endian twos complement
+                        {
+                            int i;
+                            bool carry = true;
+                            for (i = hash.Length - 1; i >= 0; --i)
+                            {
+                                hash[i] = (byte)~hash[i];
+                                if (carry)
+                                {
+                                    carry = hash[i] == 0xFF;
+                                    ++hash[i];
+                                }
+                            }
+                        }
+
+                        using var preServerHash = new UnsafeString(Convert.ToHexString(hash));
+                        preServerHash.TrimStart('0');
+                        using var serverHash = negative ? "-" + preServerHash : preServerHash;
+
+                        if (GatewayLogging.InDebug) _logger.LogDebug("Building auth request");
+                        using UnsafeString requestUrl = new("https://sessionserver.mojang.com/session/minecraft/hasJoined?username=", 127);
+                        requestUrl.Append(Username);
+                        requestUrl.Append("&serverId=");
+                        requestUrl.Append(serverHash);
+
+                        if (GatewayLogging.InDebug) _logger.LogDebug("Authenticating with Mojang");
+
+                        // Make auth request
+                        using var authCancelSource = new CancellationTokenSource();
+                        using var httpClient = new HttpClient();
+                        using var httpRequest = httpClient.GetAsync(requestUrl.ToString(), authCancelSource.Token);
+
+                        // Wait for response or timeout
+                        bool authCompleted = httpRequest.Wait(10_000);
+
+                        if (!authCompleted)
+                        {
+                            _logger.LogDebug("timed out?");
+                            authCancelSource.Cancel();
+                            LoginDisconnect(Translation.DefaultTranslation.DisconnectAuthenticationTimeout);
+                            return;
+                        }
+
+                        using var httpResponse = httpRequest.Result;
+
+                        string? responseString = httpResponse.Content.ReadAsStringAsync().Result;
+                        if (responseString is null || responseString.Length == 0)
+                        {
+                            if (GatewayLogging.InDebug) _logger.LogDebug("Got null or zero length response");
+                            LoginDisconnect(Translation.DefaultTranslation.DisconnectAuthenticationFail);
+                            return;
+                        }
+                        authResponse = JsonSerializer.Deserialize<AuthResponse>(httpResponse.Content.ReadAsStringAsync().Result);
+                    }
+
+                    // Check auth response
+                    if (authResponse?.id == null)
+                    {
+                        if (GatewayLogging.InDebug) _logger.LogDebug("Authentication fail");
                         LoginDisconnect(Translation.DefaultTranslation.DisconnectAuthenticationFail);
                         return;
                     }
-                    authResponse = JsonSerializer.Deserialize<AuthResponse>(httpResponse.Content.ReadAsStringAsync().Result);
+                    _logger.LogDebug("Authenticated!");
+                    skin = authResponse.properties[0].value;
+                    UUID = Guid.Parse(authResponse.id);
                 }
 
-                // Check auth response
-                if (authResponse?.id == null)
-                {
-                    if (GatewayLogging.InDebug) _logger.LogDebug("Authentication fail");
-                    LoginDisconnect(Translation.DefaultTranslation.DisconnectAuthenticationFail);
-                    return;
-                }
-                UUID = Guid.Parse(authResponse.id);
-                ClientTranslation = ConnectionCallback.GetTranslationsObject(UUID);
-                _callback = ConnectionCallback.GetCallback(Username, UUID, ClientTranslation, this);
-                if (GatewayLogging.InDebug) _logger.LogInformation("Got callback");
-                _callback.SetSkin(authResponse.properties[0].value);
+                if (!Config.OnlineMode) UUID = Guid.NewGuid();
+
+                using var callbackCancelSource = new CancellationTokenSource();
+                using var getCallback = ConnectionCallback.GetCallback(
+                    Username, UUID, skin, this, callbackCancelSource.Token);
+
 
                 // Compression packet
+                _logger.LogDebug("writing compression packet");
                 if (GatewayConfig.RequireCompressedFormat || Config.CompressionThreshold >= 0)
                 {
                     _stream.Write(SetCompressionPacket);
                     _compressionThreshold = Config.CompressionThreshold;
                 }
-
+                _logger.LogDebug("sent compression packet");
                 // Send login success
                 {
-                    byte[] buffer = ArrayPool<byte>.Shared.Rent(127);
+                    int offset = Packet.SCRATCHSPACE;
+                    byte[] buffer = ArrayPool<byte>.Shared.Rent(128);
                     try
                     {
-                        int offset = 0;
                         buffer[offset++] = 0x02; // Packet id
                         UUID.TryWriteBytes(buffer.AsSpan(offset)); // UUID
                         offset += 16;
                         offset += Packet.WriteString(buffer.AsSpan(offset), Username); // Username
                         buffer[offset++] = 0x00; // Number of properties
-                        _logger.LogInformation("Sending login packet " + Convert.ToHexString(buffer.AsSpan(0, offset)));
-                        WritePacket(buffer.AsSpan(0, offset));
                     }
-                    finally
+                    catch
                     {
                         ArrayPool<byte>.Shared.Return(buffer);
+                        throw;
                     }
+
+                    WritePacket(new Packet(buffer, offset, 0, 0x02, 1));
                 }
-                
+                _logger.LogDebug("sent login success");
+                bool getCallbackComplete = getCallback.Wait(8000);
+                if (!getCallbackComplete)
+                {
+                    _logger.LogDebug("getCallback timed out");
+                    callbackCancelSource.Cancel();
+                    Disconnect(Translation.DefaultTranslation.DisconnectBackendTimeout);
+                }
+                _logger.LogDebug("Got callback");
+                _callback = (IMCClientConnectionCallback)getCallback.Result;
+                ClientTranslation = _callback.GetTranslationsObject();
+
                 _loggedIn = true;
                 return;
             }
@@ -259,16 +298,8 @@ namespace MCGateway.Protocol.V759
 #else
             catch { }
 #endif
-            try
-            {
-                LoginDisconnect("");
-            }
-#if DEBUG
-            catch (Exception e) { _logger.LogDebug(e, $"Exception occurred sending kick packet"); }
-#else
-            catch { }
-#endif
 
+            // Needs to be updated if used after a set compression packet is sent
             void LoginDisconnect(string reason)
             {
                 int messageLength = Encoding.UTF8.GetByteCount(reason);
@@ -316,51 +347,61 @@ namespace MCGateway.Protocol.V759
 
         public void Disconnect(string reason) // This should use an auto generated library for making packet in future
         {
-            _logger.LogWarning("Disconnected called but not implemented");
-            if (GatewayLogging.Config.LogDisconnectsPlayState)
-                _logger.LogDebug("Player disconnected by server in play state. Reason: '{reason}'", reason);
+            _logger.LogWarning("Disconnect called but not implemented. Reason: " + reason);
 
-            int reasonLength = Encoding.UTF8.GetByteCount(reason);
-            int reasonLengthLength = Packet.GetVarIntLength(reasonLength);
-            int packetIdLength = Packet.GetVarIntLength((byte)ClientboundPacketType.DISCONNECT);
-            int packetLength = reasonLength + reasonLengthLength + packetIdLength;
-            var bytes = ArrayPool<byte>.Shared.Rent(Packet.GetVarIntLength(packetLength) + packetLength);
-            int offset = Packet.WriteVarInt(bytes, 0, packetLength);
-            offset += Packet.WriteVarInt(bytes, offset, (int)ClientboundPacketType.DISCONNECT);
-            offset += Packet.WriteVarInt(bytes, offset, reasonLength);
-            Packet.WriteString(bytes, reason);
-            // Need to finish after changing Packet to include packetLength varint in its array
+            //int reasonLength = Encoding.UTF8.GetByteCount(reason);
+            //int reasonLengthLength = Packet.GetVarIntLength(reasonLength);
+            //int packetIdLength = Packet.GetVarIntLength((int)ClientboundPacketType.DISCONNECT);
+            //int packetLength = reasonLength + reasonLengthLength + packetIdLength;
+            //var bytes = ArrayPool<byte>.Shared.Rent(Packet.GetVarIntLength(packetLength) + packetLength);
+            //int offset = Packet.WriteVarInt(bytes, 0, packetLength);
+            //offset += Packet.WriteVarInt(bytes, offset, (int)ClientboundPacketType.DISCONNECT);
+            //offset += Packet.WriteVarInt(bytes, offset, reasonLength);
+            //Packet.WriteString(bytes, reason);
+            // Need to finish
         }
 
         public void Forward(Packet packet)
         {
-            try
-            {
-                //_logger.LogDebug("Client forwarding packet with ID " + packet.PacketID);
-                WritePacket(packet.LengthPrefixedPacketBytes5Offset);
-            }
-            finally
-            {
-                packet.Dispose();
-            }
+            WritePacket(packet);
         }
 
         [RequiresPreviewFeatures]
-        public Task ReceiveTilClosed()
+        public Task ReceiveTilClosedAndDispose()
         {
             _callback.StartedReceivingCallback();
             return Task.Run(() =>
             {
-                while (true)
+                try
                 {
-                    var packet = ReadPacket();
-                    _logger.LogInformation("Received packet from client with ID {id}", packet.PacketID.ToString("X"));
-                    _callback.Forward(packet);
+                    while (true)
+                    {
+                        var packet = ReadPacket();
+                        _callback.Forward(packet);
+                    }
+                }
+                catch (MCConnectionClosedException) { throw; }
+                catch (InvalidDataException ex)
+                {
+                    if (GatewayLogging.Config.LogClientInvalidDataException)
+                    {
+                        _logger.LogDebug(ex, "InvalidDataException occurred while ClientConnection was receiving");
+                    }
+                    throw new MCConnectionClosedException();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Uncaught exception occurred while ClientConnection was receiving");
+                    throw new MCConnectionClosedException();
+                }
+                finally
+                {
+                    Dispose();
                 }
             });
         }
 
-        private class AuthResponse
+        class AuthResponse
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 #pragma warning disable IDE1006 // Naming Styles
         {
@@ -386,6 +427,7 @@ namespace MCGateway.Protocol.V759
             base.Dispose(disposing); // Dispose first so this can't be reentered
             if (disposing)
             {
+                PlayerPubKey?.Dispose();
                 _callback.Dispose();
             }
         }

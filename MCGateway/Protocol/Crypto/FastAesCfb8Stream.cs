@@ -9,25 +9,23 @@ namespace MCGateway.Protocol.Crypto
     [SkipLocalsInit]
     public sealed class FastAesCfb8Stream : Stream
     {
+        readonly FastAes _fastAes;
+        bool inStreamEnded = false;
+        readonly byte[] _readStreamIV = new byte[BlockSize];
+        readonly byte[] _writeStreamIV = new byte[BlockSize];
+
         public const int BlockSize = 16;
         public static readonly bool IsSupported = FastAes.IsSupported();
-        
-        private readonly FastAes _fastAes;
-
-        private bool inStreamEnded = false;
-
-        private readonly byte[] _readStreamIV = new byte[BlockSize];
-        private readonly byte[] _writeStreamIV = new byte[BlockSize];
 
         public Stream BaseStream { get; set; }
 
-        public FastAesCfb8Stream(Stream stream, byte[] key)
+        public FastAesCfb8Stream(Stream stream, Span<byte> key)
         {
             BaseStream = stream;
             _fastAes = new FastAes(key);
 
-            Array.Copy(key, _readStreamIV, 16);
-            Array.Copy(key, _writeStreamIV, 16);
+            key.CopyTo(_readStreamIV);
+            key.CopyTo(_writeStreamIV);
         }
 
         public override bool CanRead

@@ -32,13 +32,13 @@
                 EncodedPos |= (ulong)(value & 0x3FFFFFF) << 12;
             }
         }
-        public short Y // Last 12 bits
+        public int Y // Last 12 bits
         {
             get
             {
-                ushort y = (ushort)(EncodedPos & 0xFFF);
+                int y = (int)(EncodedPos & 0xFFF);
                 if (y >= 0x800) y |= 0xF000;
-                return (short)y;
+                return y;
             }
             set
             {
@@ -52,12 +52,12 @@
             EncodedPos = encodedPos;
         }
 
-        public Position(int x, short y, int z)
+        public Position(int x, int y, int z)
         {
             X = x; Y = y; Z = z;
         }
 
-        public void SetXYZ(int x, short y, int z)
+        public void SetXYZ(int x, int y, int z)
         {
             X = x; Y = y; Z = z;
         }

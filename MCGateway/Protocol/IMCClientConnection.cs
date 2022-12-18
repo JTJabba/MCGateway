@@ -6,7 +6,7 @@ namespace MCGateway.Protocol
 {
     public interface IMCClientConnection : IMCConnection
     {
-        public Task ReceiveTilClosed();
+        public Task ReceiveTilClosedAndDispose();
         public void Disconnect(string reason);
     }
 }

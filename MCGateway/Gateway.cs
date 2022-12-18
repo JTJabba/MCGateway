@@ -12,10 +12,10 @@ namespace MCGateway
     public sealed class Gateway<GatewayConnectionCallback> : IDisposable
         where GatewayConnectionCallback : IGatewayConnectionCallback
     {
-        private bool _disposed;
-        private readonly ILogger logger;
-        private TcpListener tcpListener;
-        private readonly CancellationToken stoppingToken;
+        bool _disposed = false;
+        readonly ILogger logger;
+        TcpListener tcpListener;
+        readonly CancellationToken stoppingToken;
 
         /// <summary>
         /// Map of client-facing ports to open connections
@@ -57,19 +57,19 @@ namespace MCGateway
             if (!IsListening)
                 throw new InvalidOperationException("Gateway is not running");
 
-            tcpListener.Stop();
             IsListening = false;
+            tcpListener.Stop();
         }
 
         [RequiresPreviewFeatures]
-        private Task AcceptConnectionsAsync(TcpListener listener)
+        Task AcceptConnectionsAsync(TcpListener listener)
         {
             return Task.Run(async () =>
             {
                 TcpClient? client = null;
                 try
                 {
-                    while (!stoppingToken.IsCancellationRequested)
+                    while (!stoppingToken.IsCancellationRequested && IsListening)
                     {
                         client = null;
                         client = await listener.AcceptTcpClientAsync(stoppingToken).ConfigureAwait(false);
@@ -86,7 +86,7 @@ namespace MCGateway
         }
 
         [RequiresPreviewFeatures]
-        private void ConnectionAccepted(TcpClient client)
+        void ConnectionAccepted(TcpClient client)
         {
             Task.Run(() =>
             {
@@ -115,7 +115,7 @@ namespace MCGateway
             });
         }
 
-        private void GatewayConnectionDisposedCallback(GatewayConnection<GatewayConnectionCallback> con)
+        void GatewayConnectionDisposedCallback(GatewayConnection<GatewayConnectionCallback> con)
         {
             Connections.Remove((ushort)((IPEndPoint)con.ClientConnection.Client.Client.LocalEndPoint!).Port, out _);
         }
@@ -128,7 +128,7 @@ namespace MCGateway
             GC.SuppressFinalize(this);
         }
         [RequiresPreviewFeatures]
-        private void Dispose(bool disposing)
+        void Dispose(bool disposing)
         {
             if (_disposed)
             {

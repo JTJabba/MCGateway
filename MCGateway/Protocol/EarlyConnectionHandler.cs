@@ -12,10 +12,10 @@ namespace MCGateway.Protocol
     [SkipLocalsInit]
     public static class EarlyConnectionHandler
     {
-        private static ILogger logger = GatewayLogging.CreateLogger("EarlyConnectionHandler");
+        static ILogger logger = GatewayLogging.CreateLogger("EarlyConnectionHandler");
         internal static Dictionary<string, byte[]> CachedClientConnectionStrings = new();
 
-        private static readonly byte[] LegacyKickPacket = new byte[]
+        static readonly byte[] LegacyKickPacket = new byte[]
         {
             0xfe, 0x01, 0xfa, 0x00, 0x0b, 0x00, 0x4d, 0x00,
             0x43, 0x00, 0x7c, 0x00, 0x50, 0x00, 0x69, 0x00,
@@ -26,11 +26,11 @@ namespace MCGateway.Protocol
             0x00, 0x74, 0x00, 0x00, 0x63, 0xdd
         };
 
-        private static readonly
+        static readonly
             (string ServerAddress, ushort ServerPort, int ProtocolVersion)
             DefaultHandshakeReturn = (string.Empty, 0, 0);
 
-        private static void LoadCachedConnectionStrings()
+        static void LoadCachedConnectionStrings()
         {
             foreach (var conString in Config.CommonClientConnectionStrings)
                 CachedClientConnectionStrings.TryAdd(
@@ -74,9 +74,9 @@ namespace MCGateway.Protocol
                     }
 
                     var handshakePacket = ArrayPool<byte>.Shared.Rent(packetLength);
-                    RecvBytes(handshakePacket, 0, packetLength);
                     try
                     {
+                        RecvBytes(handshakePacket, 0, packetLength);
                         int currentOffset = 1; // Discard packet ID, always 0
                         int protocolVersion = ReadVarInt(handshakePacket, ref currentOffset);
                         string targetServerAddr = ReadTargetServerString(handshakePacket, ref currentOffset);
@@ -258,6 +258,7 @@ namespace MCGateway.Protocol
                 do
                 {
                     int read = netstream.Read(buffer, offset, count);
+                    if (read <= 0) throw new MCConnectionClosedException();
                     offset += read;
                     count -= read;
                 } while (count > 0);

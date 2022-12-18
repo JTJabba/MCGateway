@@ -12,7 +12,7 @@ namespace MCGateway
         public static ImmutableSortedDictionary<string, Config.TranslationsObject> Translations { get; private set; }
         public static Config.TranslationsObject DefaultTranslation { get; private set; }
 
-        private static void LoadTranslations()
+        static void LoadTranslations()
         {
             {
                 var temp = new Dictionary<string, Config.TranslationsObject>();
