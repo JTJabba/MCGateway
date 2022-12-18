@@ -9,7 +9,7 @@ namespace TestGateway1
 {
     internal class GatewayConCallback : IGatewayConnectionCallback
     {
-        private static BidirectionalDictionary<string, Guid> OnlinePlayers = new();
+        static BidirectionalDictionary<string, Guid> OnlinePlayers = new();
         public bool InOfflineMode => false;
 
         [RequiresPreviewFeatures]

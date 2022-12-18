@@ -15,38 +15,33 @@ namespace MCGateway
         public static ILogger CreateLogger<T>() => LoggerFactory.CreateLogger<T>();
         public static ILogger CreateLogger(string categoryName) => LoggerFactory.CreateLogger(categoryName);
 
-        /// <summary>
-        /// If in debug, asserts that packet IDs match or throws error.
-        /// If successLogMessage and logger are not null, will log message with packet id as argument
-        /// </summary>
-        [Conditional("DEBUG")]
-        public static void DebugAssertPacketID(int expected, int actual, ILogger? logger = null, string? successLogMessage = null)
-        {
-            if (expected != actual) throw new InvalidDataException($"Expected Packet ID {expected.ToString("X")}, got {actual.ToString("X")} instead");
-            if (successLogMessage != null && logger != null)
-                logger.LogDebug(successLogMessage, expected);
-        }
 
-        [Conditional("DEBUG")]
-        public static void DebugPacket(
-            IMCConnection con,
+        public static void LogPacket(
             ILogger logger,
-            ulong packetNumber,
-            string message)
+            LogLevel level,
+            IMCConnection con,
+            string message,
+            int? packetID = null,
+            Exception? ex = null)
 
         {
-            logger.LogDebug(
-                "Packet debug: connectionType={connectionType}, accountUUID={accountUUID}, packetNumber=0x{packetNumber}: {message}",
+            logger.Log(
+                level,
+                ex,
+                "Packet debug: connectionType={connectionType}, ititTimestamp={initTimestamp} accountUUID={accountUUID}, packetNumber=0x{packetNumber}, packetID=0x{packetID}: {message}",
                 con is IMCClientConnection ? "server" : "client",
+                con.InitTimestamp,
                 con.UUID,
-                packetNumber.ToString("X"),
+                con.PacketsRead.ToString("X"),
+                packetID?.ToString("X"),
                 message
                 );
         }
 
         public static class Config
         {
-            public const bool LogDisconnectsPlayState = InDebug & true;
+            public const bool LogClientInvalidDataException = InDebug & true;
+            public const bool LogServerInvalidDataException = true;
         }
     }
 }

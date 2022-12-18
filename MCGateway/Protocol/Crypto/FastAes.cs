@@ -6,14 +6,15 @@ using System.Runtime.Intrinsics.X86;
 
 namespace MCGateway.Protocol.Crypto
 {
-    // Copied from https://github.com/MCCTeam/Minecraft-Console-Client/blob/0907958ded2c5ac31f68bce4ed0ec8e246e2581e/MinecraftClient/Crypto/FastAes.cs
+    // Adapted from https://github.com/MCCTeam/Minecraft-Console-Client/blob/0907958ded2c5ac31f68bce4ed0ec8e246e2581e/MinecraftClient/Crypto/FastAes.cs
     // Using the AES-NI instruction set
     // https://gist.github.com/Thealexbarney/9f75883786a9f3100408ff795fb95d85
+    [SkipLocalsInit]
     public sealed class FastAes
     {
-        private Vector128<byte>[] RoundKeys { get; }
+        Vector128<byte>[] RoundKeys { get; }
 
-        public FastAes(Span<byte> key)
+        public FastAes(Span<byte> key) // Need span to pass by ref in KeyExpansion
         {
             RoundKeys = KeyExpansion(key);
         }
@@ -58,9 +59,9 @@ namespace MCGateway.Protocol.Crypto
             }
         }
 
-        private static Vector128<byte>[] KeyExpansion(Span<byte> key)
+        static Vector128<byte>[] KeyExpansion(Span<byte> key)
         {
-            var keys = new Vector128<byte>[20];
+            var keys = new Vector128<byte>[20]; // OK for uncleared memory
 
             keys[0] = Unsafe.ReadUnaligned<Vector128<byte>>(ref key[0]);
 
@@ -83,7 +84,7 @@ namespace MCGateway.Protocol.Crypto
             return keys;
         }
 
-        private static void MakeRoundKey(Vector128<byte>[] keys, int i, byte rcon)
+        static void MakeRoundKey(Vector128<byte>[] keys, int i, byte rcon)
         {
             Vector128<byte> s = keys[i - 1];
             Vector128<byte> t = keys[i - 1];

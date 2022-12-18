@@ -2,6 +2,6 @@
 {
     public interface IMCServerConnection : IMCConnection
     {
-        public Task ReceiveTilClosed();
+        public Task ReceiveTilClosedAndDispose();
     }
 }

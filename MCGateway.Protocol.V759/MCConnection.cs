@@ -1,44 +1,40 @@
-﻿using Ionic.Zlib;
-using JTJabba.EasyConfig;
+﻿using JTJabba.EasyConfig;
 using JTJabba.EasyConfig.Loader;
 using LibDeflate;
 using Microsoft.Extensions.Logging;
-using System;
 using System.Buffers;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MCGateway.Protocol.V759
 {
     [SkipLocalsInit]
     public abstract class MCConnection : IMCConnection, IDisposable
     {
-        private bool _disposed;
+        bool _disposed = false;
         protected bool isDisposed { get => _disposed; }
-        private readonly ILogger logger = GatewayLogging.CreateLogger<MCConnection>();
-        private readonly Compressor _compressor = new ZlibCompressor(Config.CompressionLevel);
-        private readonly Decompressor _decompressor = new ZlibDecompressor();
+        readonly ILogger _logger = GatewayLogging.CreateLogger<MCConnection>();
+        readonly Compressor _compressor = new ZlibCompressor(Config.CompressionLevel);
+        readonly Decompressor _decompressor = new ZlibDecompressor();
         protected int _compressionThreshold = -1;
-        private const int SEGMENT_MASK = 0x7F;
-        private const int CONTINUE_MASK = 0x80;
-        private const int MAX_VARINT_LENGTH = 32;
+        const int SEGMENT_MASK = 0x7F;
+        const int CONTINUE_MASK = 0x80;
+        const int MAX_VARINT_LENGTH = 32;
         protected Stream _stream;
-        private readonly byte[] recvBuffer;
-        private int writeCursor = 0;
-        private int readCursor = 0;
+        readonly byte[] recvBuffer;
+        int writeCursor = 0;
+        int readCursor = 0;
+
+        public ulong InitTimestamp { get; init; }
         public ulong PacketsRead { get; private set; } = 0;
+        public ulong PacketsWrite { get; private set; } = 0;
         public int ProtocolVersion { get { return V759Constants.ProtocolVersion; } }
         public TcpClient Client { get; init; }
         public abstract string Username { get; init; }
         public abstract Guid UUID { get; init; }
         public abstract Config.TranslationsObject ClientTranslation { get; set; }
 
-        private static void ValidateConfig()
+        static void ValidateConfig()
         {
             if (GatewayConfig.RequireCompressedFormat)
             {
@@ -52,170 +48,277 @@ namespace MCGateway.Protocol.V759
             ConfigLoader.AddOnFirstStaticLoadCallback(ValidateConfig);
         }
 
-        protected MCConnection(TcpClient client, int bufferSize)
+        protected MCConnection(TcpClient client, int bufferSize, ulong ititializedTimestamp)
         {
             Client = client;
             _stream = client.GetStream();
             recvBuffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+            InitTimestamp = ititializedTimestamp;
         }
         
+        // TODO in future for speeding up reading large packets,
+        // look into receiving directly into packet's buffer,
+        // or storing spans over data in recv buffer (avoid if possible)
         public Packet ReadPacket()
         {
             ++PacketsRead;
-
-            int packetLength = ReadVarInt();
+            
+            int packetIDLength = 0;
+            int packetLength = ReadVarInt(out int packetLengthLength);
 
             // Compression disabled
             if (!GatewayConfig.RequireCompressedFormat && _compressionThreshold <= 0)
-            {
-                int packetLengthLength = Packet.GetVarIntLength(packetLength);
-                var bytes = ReadBytesVariableOffset(packetLength, 5 + packetLengthLength);
-                Packet.WriteVarInt(bytes, 5, packetLength);
-
-                int packetIDLength = 0;
-                return new Packet(
-                    bytes,
-                    packetLength,
-                    Packet.ReadVarInt(bytes.AsSpan(5 + packetLengthLength, packetLength), ref packetIDLength),
-                    packetIDLength + packetLengthLength);
-            }
+                return ReadUncompressedPacket();
 
             int dataLength = ReadVarInt(out int dataLengthLength);
 
             // Data not compressed
             if (dataLength == 0)
             {
-                --packetLength; // Sub dataLength length
-                byte packetLengthLength = Packet.GetVarIntLength(packetLength);
-                var bytes = ReadBytesVariableOffset(packetLength, 5 + packetLengthLength);
-                Packet.WriteVarInt(bytes, 5, packetLength);
-
-                int packetIDLength = 0;
-                return new Packet(
-                    bytes,
-                    packetLength,
-                    Packet.ReadVarInt(bytes.AsSpan(5 + packetLengthLength), ref packetIDLength),
-                    (byte)(packetIDLength + packetLengthLength));
+                --packetLength;
+                return ReadUncompressedPacket();
             }
 
             // Data is compressed
-            packetLength -= dataLengthLength;
-
-            int dataOffset = 5 + dataLengthLength;
-            byte[] packetBytes = ArrayPool<byte>.Shared.Rent(5 + dataLengthLength + dataLength);
-            byte[]? buffer = null;
+            int compressedPacketOffset = Packet.SCRATCHSPACE + dataLength;
+            int compressedDataLength = packetLength - dataLengthLength;
+            byte[] data = ArrayPool<byte>.Shared.Rent(compressedPacketOffset + packetLengthLength + packetLength);
             try
             {
-                // Get span over compressed data. If there's room prefill and copy directly from recvBuffer
-                ReadOnlySpan<byte> compressedData;
-                if (recvBuffer.Length - readCursor < packetLength)
-                {
-                    buffer = ReadBytes5Offset(packetLength);
-                    compressedData = buffer.AsSpan(5, packetLength);
-                }
-                else
-                {
-                    while (writeCursor - readCursor < packetLength)
-                    {
-                        int recv = _stream.Read(recvBuffer, writeCursor, recvBuffer.Length - writeCursor);
-                        if (recv == 0) throw new MCConnectionClosedException();
-                        writeCursor += recv;
-                    }
-                    compressedData = recvBuffer.AsSpan(readCursor, packetLength);
-                }
-                if (_decompressor.Decompress(compressedData, packetBytes.AsSpan(5 + dataLengthLength, dataLength), out _)
-                    != OperationStatus.Done) throw new InvalidDataException("Decompression failed");
+                // Write compressed packet to its spot in data array
+                Packet.WriteVarInt(data, compressedPacketOffset, packetLength);
+                int compressedDataOffset = compressedPacketOffset + packetLengthLength;
+                Packet.WriteVarInt(data, compressedDataOffset, dataLength);
+                compressedDataOffset += dataLengthLength;
+                ReadBytesToBuffer(data, compressedDataOffset, compressedDataLength);
                 
-
-            }
-            catch (Exception e)
-            {
-                logger.LogWarning(
-                    e,
-                    "Packet debug {direction} packet number 0x{count}: Exception occured while reading packet",
-                    this is IMCClientConnection ? "serverbound" : "clientbound",
-                    PacketsRead.ToString("X"));
-
-                ArrayPool<byte>.Shared.Return(packetBytes);
-                if (buffer != null) ArrayPool<byte>.Shared.Return(buffer);
-
-                throw;
-            }
-
-
-            byte[] ReadBytesVariableOffset(int count, int offset)
+                if (PacketsRead < 10)
                 {
-                    count += offset;
-                    int dataOffset = offset;
-                    byte[] data = ArrayPool<byte>.Shared.Rent(count);
-                    int dataRecvLength;
-                    do
-                    {
-                        if (readCursor >= writeCursor) Recv();
-
-                        dataRecvLength = Math.Min(count - dataOffset, writeCursor - readCursor);
-                        recvBuffer.AsSpan(readCursor, dataRecvLength)
-                            .CopyTo(data.AsSpan(dataOffset, dataRecvLength));
-                        dataOffset += dataRecvLength;
-                        readCursor += dataRecvLength;
-                    } while (dataOffset < count);
-
-                    return data;
+                    _logger.LogDebug("dataLengthLength: " + dataLengthLength);
+                    _logger.LogDebug("dataLength: " + dataLength);
+                    _logger.LogDebug("compressedDataOffset: " + compressedDataOffset);
+                    _logger.LogDebug("compressedDataLength: " + compressedDataLength);
                 }
+                
+                // Decompress data
+                if (_decompressor.Decompress(
+                    data.AsSpan(compressedDataOffset, compressedDataLength),
+                    data.AsSpan(Packet.SCRATCHSPACE, dataLength),
+                    out _)
+                    != OperationStatus.Done) throw new InvalidDataException("Decompression failed");
+
+                //return new Packet(
+                //    data,
+                //    Packet.SCRATCHSPACE + dataLength,
+                //    packetLengthLength + packetLength,
+                //    Packet.ReadVarInt(data.AsSpan(Packet.SCRATCHSPACE, dataLength), ref packetLength),
+                //    packetIDLength);
+
+                Span<byte> buf = stackalloc byte[5];
+                buf.Clear();
+                var span2red = data.AsSpan(Packet.SCRATCHSPACE, dataLength);
+                var span2copi = span2red.Slice(0, Math.Min(span2red.Length, 5));
+                span2copi.CopyTo(buf);
+                try
+                {
+                    return new Packet(
+                                        data,
+                                        Packet.SCRATCHSPACE + dataLength,
+                                        packetLengthLength + packetLength,
+                                        Packet.ReadVarInt(span2red, ref packetLength),
+                                        packetIDLength);
+                }
+                catch
+                {
+                    _logger.LogDebug("Fail return paket! first paket data: " +
+                        buf[0].ToString("X") + " " +
+                        buf[1].ToString("X") + " " +
+                        buf[2].ToString("X") + " " +
+                        buf[3].ToString("X") + " " +
+                        buf[4].ToString("X")
+                        );
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                ArrayPool<byte>.Shared.Return(data);
+
+                if (ex is MCConnectionClosedException ||
+                    ex is InvalidDataException) throw;
+
+                GatewayLogging.LogPacket(
+                    _logger,
+                    LogLevel.Warning,
+                    this,
+                    "Exception occured while reading packet",
+                    null,
+                    ex);
+
+                throw new MCConnectionClosedException();
+            }
+
+
+            Packet ReadUncompressedPacket()
+            {
+                int uncompressedEndOffset = Packet.SCRATCHSPACE + packetLength;
+                var data = ArrayPool<byte>.Shared.Rent(uncompressedEndOffset);
+                try
+                {
+
+                    ReadBytesToBuffer(data, Packet.SCRATCHSPACE, packetLength);
+                    return new Packet(
+                        data,
+                        uncompressedEndOffset,
+                        0,
+                        Packet.ReadVarInt(data.AsSpan(Packet.SCRATCHSPACE, packetLength), ref packetIDLength),
+                        packetIDLength);
+                }
+                catch
+                {
+                    ArrayPool<byte>.Shared.Return(data);
+                    throw;
+                }
+            }
         }
 
-        public void WritePacket(ReadOnlySpan<byte> packetBytes)
+        /// <summary>
+        /// Writes and disposes a packet. Modifies packet so WILL DISPOSE ON EXCEPTION
+        /// </summary>
+        /// <param name="packet"></param>
+        public void WritePacket(Packet packet)
         {
-            const int DATA_OFFSET = 10;
-            byte[] buffer = ArrayPool<byte>.Shared.Rent(packetBytes.Length + DATA_OFFSET);
+            ++PacketsWrite;
+
             try
             {
-                int uncompressedDataLengthLength;
-                int packetLength;
+                Span<byte> rawPacket;
 
-                // Build packet with no length prefix
-                if (_compressionThreshold < 0)
+                // Compression disabled
+                if (!GatewayConfig.RequireCompressedFormat && _compressionThreshold <= 0)
                 {
-                    packetBytes.CopyTo(buffer.AsSpan(DATA_OFFSET));
-                    uncompressedDataLengthLength = 0;
-                    packetLength = packetBytes.Length;
+                    int packetLengthLength = Packet.GetVarIntLength(packet.PacketIDAndDataLength);
+                    rawPacket =
+                        packet.Data.AsSpan(
+                            Packet.SCRATCHSPACE - packetLengthLength,
+                            packet.PacketIDAndDataLength);
+                    Packet.WriteVarInt(rawPacket, packet.PacketIDAndDataLength);
                 }
-                else if (packetBytes.Length > _compressionThreshold)
+
+                // Not compressed
+                else if (packet.PacketIDAndDataLength < _compressionThreshold)
                 {
-                    try
+                    int packetLength = packet.PacketIDAndDataLength + 1;
+                    int packetLengthLength = Packet.GetVarIntLength(packetLength);
+                    packet.Data[Packet.SCRATCHSPACE - 1] = 0;
+                    rawPacket =
+                        packet.Data.AsSpan(
+                            Packet.SCRATCHSPACE - 1 - packetLengthLength,
+                            packetLengthLength + packetLength);
+                    Packet.WriteVarInt(rawPacket, packetLength);
+                }
+
+                // Compressed
+                else if (packet.RawCompressedPacketLength != 0)
+                {
+                    if (PacketsWrite < 10)
                     {
-                        int compressedDataLength = _compressor.Compress(packetBytes, buffer.AsSpan(DATA_OFFSET));
-                        uncompressedDataLengthLength = Packet.GetVarIntLength(packetBytes.Length);
-                        packetLength = compressedDataLength + uncompressedDataLengthLength;
-                        Packet.WriteVarInt(buffer, DATA_OFFSET - uncompressedDataLengthLength, packetBytes.Length);
+                        _logger.LogInformation("writing cached packet");
+                        var buf = packet.Data;
+                        int offset = packet.RawCompressedPacketOffset;
+                        _logger.LogInformation("start bytes: " + buf[offset].ToString("X") + buf[offset + 1].ToString("X") + buf[offset + 2].ToString("X"));
+                        offset = offset + packet.RawCompressedPacketLength - 1;
+                        _logger.LogInformation("end bytes: " + buf[offset].ToString("X") + buf[offset - 1].ToString("X") + buf[offset - 2].ToString("X"));
                     }
-                    catch (Exception e)
-                    {
-                        if (GatewayLogging.InDebug) logger.LogWarning(e, "Unable to compress packet");
-                        packetBytes.CopyTo(buffer.AsSpan(DATA_OFFSET));
-                        uncompressedDataLengthLength = 1;
-                        buffer[DATA_OFFSET - 1] = 0;
-                        packetLength = packetBytes.Length + 1;
-                    }
+                    rawPacket =
+                        packet.Data.AsSpan(
+                            packet.RawCompressedPacketOffset,
+                            packet.RawCompressedPacketLength);
                 }
                 else
                 {
-                    packetBytes.CopyTo(buffer.AsSpan(DATA_OFFSET));
-                    uncompressedDataLengthLength = 1;
-                    buffer[DATA_OFFSET - 1] = 0;
-                    packetLength = packetBytes.Length + 1;
-                }
+                    var buffer = ArrayPool<byte>.Shared.Rent(packet.RawCompressedPacketOffset);
+                    try
+                    {
+                        const int HEADER_SCRATCHSPACE = 10;
 
-                // Length prefix and write. Note packetLength includes uncompressedDataLength length
-                int packetLengthLength = Packet.GetVarIntLength(packetLength);
-                Packet.WriteVarInt(buffer, DATA_OFFSET - uncompressedDataLengthLength - packetLengthLength, packetLength);
-                //logger.LogDebug("Sending packet " + Convert.ToHexString(buffer.AsSpan(DATA_OFFSET - uncompressedDataLengthLength - packetLengthLength, Math.Min(packetLengthLength + packetLength, 32))));
-                _stream.Write(buffer.AsSpan(DATA_OFFSET - uncompressedDataLengthLength - packetLengthLength, packetLengthLength + packetLength));
+                        int compressedDataLength =
+                            _compressor.Compress(
+                                packet.Data.AsSpan(
+                                    Packet.SCRATCHSPACE,
+                                    packet.PacketIDAndDataLength),
+                                buffer.AsSpan(HEADER_SCRATCHSPACE));
+
+                        int dataLengthLength = Packet.GetVarIntLength(packet.PacketIDAndDataLength);
+                        int packetLength = dataLengthLength + compressedDataLength;
+                        int dataLengthOffset = HEADER_SCRATCHSPACE - dataLengthLength;
+                        int packetLengthLength = Packet.GetVarIntLength(packetLength);
+
+                        Packet.WriteVarInt(
+                            buffer,
+                            dataLengthOffset,
+                            packet.PacketIDAndDataLength);
+
+                        rawPacket =
+                            packet.Data.AsSpan(
+                                dataLengthOffset - packetLengthLength,
+                                packetLengthLength + packetLength);
+
+                        Packet.WriteVarInt(rawPacket, packetLength);
+
+                        _stream.Write(rawPacket);
+                        return;
+                    }
+                    catch
+                    {
+                        // Should log and write uncompressed
+                        throw; // remove when wroted
+                    }
+                    finally
+                    {
+                        ArrayPool<byte>.Shared.Return(buffer);
+                    }
+                }
+                _stream.Write(rawPacket);
             }
             finally
             {
-                ArrayPool<byte>.Shared.Return(buffer);
+                packet.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Always checks if compression is enabled even if GatewayConfig.RequireCompressedFormat is set
+        /// </summary>
+        /// <returns></returns>
+        protected Packet ReadPacketLogin()
+        {
+            if (_compressionThreshold >= 0)
+            {
+                return ReadPacket();
+            }
+
+            ++PacketsRead;
+
+            int packetLength = ReadVarInt();
+            var data = ArrayPool<byte>.Shared.Rent(Packet.SCRATCHSPACE + packetLength);
+            try
+            {
+                int packetIDLength = 0;
+                ReadBytesToBuffer(data, Packet.SCRATCHSPACE, packetLength);
+                return new Packet(
+                    data,
+                    Packet.SCRATCHSPACE + packetLength,
+                    0,
+                    Packet.ReadVarInt(data.AsSpan(Packet.SCRATCHSPACE, packetLength), ref packetIDLength),
+                    packetIDLength);
+            }
+            catch
+            {
+                ArrayPool<byte>.Shared.Return(data);
+                throw;
+            }
+
         }
 
         protected int ReadVarInt()
@@ -250,16 +353,10 @@ namespace MCGateway.Protocol.V759
             }
         }
 
-        /// <summary>
-        /// Read bytes into a buffer with a 5 byte offset to support length prefixing
-        /// </summary>
-        /// <param name="length"></param>
-        /// <returns>A byte array rented from ArrayPool Shared. Should be returned</returns>
-        protected byte[] ReadBytes5Offset(int count)
+        protected byte[] ReadBytesToBuffer(byte[] buffer, int offset, int count)
         {
-            count += 5;
-            int dataOffset = 5;
-            byte[] data = ArrayPool<byte>.Shared.Rent(count);
+            count += offset;
+            int dataOffset = offset;
             int dataRecvLength;
             do
             {
@@ -267,12 +364,12 @@ namespace MCGateway.Protocol.V759
 
                 dataRecvLength = Math.Min(count - dataOffset, writeCursor - readCursor);
                 recvBuffer.AsSpan(readCursor, dataRecvLength)
-                    .CopyTo(data.AsSpan(dataOffset, dataRecvLength));
+                    .CopyTo(buffer.AsSpan(dataOffset, dataRecvLength));
                 dataOffset += dataRecvLength;
                 readCursor += dataRecvLength;
             } while (dataOffset < count);
 
-            return data;
+            return buffer;
         }
 
         protected int ReadByte()
@@ -281,7 +378,7 @@ namespace MCGateway.Protocol.V759
             return recvBuffer[readCursor++];
         }
 
-        private void Recv()
+        void Recv()
         {
             readCursor = 0;
             writeCursor = _stream.Read(recvBuffer, 0, recvBuffer.Length);

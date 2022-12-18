@@ -7,13 +7,14 @@ using JTJabba.EasyConfig;
 
 namespace MCGateway
 {
+    [SkipLocalsInit]
     public sealed class GatewayConnection<GatewayConnectionCallback> : IDisposable
         where GatewayConnectionCallback : IGatewayConnectionCallback
     {
-        private bool _disposed;
-        private static readonly ILogger logger = GatewayLogging.CreateLogger<GatewayConnection<GatewayConnectionCallback>>();
-        private readonly CancellationToken _stoppingToken;
-        private readonly Action<GatewayConnection<GatewayConnectionCallback>> _disposedCallback;
+        bool _disposed = true;
+        static readonly ILogger logger = GatewayLogging.CreateLogger<GatewayConnection<GatewayConnectionCallback>>();
+        readonly CancellationToken _stoppingToken;
+        readonly Action<GatewayConnection<GatewayConnectionCallback>> _disposedCallback;
         
         public IGatewayConnectionCallback Callback { get; init; }
         public IMCClientConnection ClientConnection { get; set; }
@@ -90,12 +91,12 @@ namespace MCGateway
         }
 
         [RequiresPreviewFeatures]
-        private void StartReceive()
+        void StartReceive()
         {
             Task.Run(async () =>
             {
-                await ClientConnection.ReceiveTilClosed();
-                Dispose();
+                try { await ClientConnection.ReceiveTilClosedAndDispose(); }
+                finally { Dispose(); }
             });
         }
 
@@ -108,7 +109,7 @@ namespace MCGateway
             GC.SuppressFinalize(this);
         }
         [RequiresPreviewFeatures]
-        private void Dispose(bool disposing)
+        void Dispose(bool disposing)
         {
             if (_disposed)
             {

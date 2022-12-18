@@ -17,10 +17,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="MCGateway.Protocol.V759" Version="0.0.132-debug" />
+		<PackageReference Include="MCGateway" Version="0.0.77" />
+		<PackageReference Include="MCGateway.Protocol.V759" Version="0.0.173-debug" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.1" />
 		<PackageReference Include="BidirectionalDictionary" Version="1.1.1" />
-		<PackageReference Include="MCGateway" Version="0.0.61" />
 		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.17.0" />
 		<PackageReference Include="Serilog.Extensions.Logging.File" Version="3.0.1-dev-00077" />
 	</ItemGroup>

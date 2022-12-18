@@ -1,5 +1,7 @@
-﻿using System.Net.Sockets;
+﻿using System;
+using System.Net.Sockets;
 using System.Runtime.Versioning;
+using System.Transactions;
 using JTJabba.EasyConfig;
 using MCGateway;
 using MCGateway.Protocol;
@@ -9,31 +11,36 @@ namespace TestGateway1
 {
     internal class MCClientConCallback : IMCClientConnectionCallback
     {
-        private bool _disposed;
-        private ILogger _logger = GatewayLogging.CreateLogger<MCClientConCallback>();
-        private IServerBoundReceiver _receiver;
+        bool _disposed;
+        ILogger _logger = GatewayLogging.CreateLogger<MCClientConCallback>();
+        IServerBoundReceiver _receiver;
         public IMCServerConnection ServerConnection { get; private set; }
 
-        public MCClientConCallback(string username, Guid uuid, Config.TranslationsObject translation, IClientBoundReceiver selfReceiver)
+        public MCClientConCallback(
+            string username, Guid uuid, string? skin, IClientBoundReceiver selfReceiver, CancellationToken cancellationToken)
         {
-            var serverClient = new TcpClient("192.168.0.72", 25565);
+            var serverClient = new TcpClient();
+            serverClient.ConnectAsync("192.168.0.72", 25565, cancellationToken).AsTask().Wait(cancellationToken);
             serverClient.NoDelay = true;
             serverClient.ReceiveTimeout = Config.KeepAlive.ServerTimeoutMs;
             serverClient.SendTimeout = Config.KeepAlive.ServerTimeoutMs;
             serverClient.ReceiveBufferSize = Config.BufferSizes.ClientBound;
             serverClient.SendBufferSize = Config.BufferSizes.ServerBound;
-            var serverConnection = new MCServerConnection(serverClient, username, uuid, translation, selfReceiver);
+            var serverConnection = new MCServerConnection(serverClient, username, uuid, GetTranslationsObject(), selfReceiver);
             _receiver = serverConnection;
             ServerConnection = serverConnection;
         }
         [RequiresPreviewFeatures]
-        public static IMCClientConnectionCallback GetCallback(string username, Guid uuid, Config.TranslationsObject translation, IClientBoundReceiver selfReceiver)
+        public static Task<object> GetCallback(
+            string username, Guid uuid, string? skin, IClientBoundReceiver selfReceiver, CancellationToken cancellationToken)
         {
-            return new MCClientConCallback(username, uuid, translation, selfReceiver);
+            return Task.Run(() =>
+            {
+                return (object)(new MCClientConCallback(username, uuid, skin, selfReceiver, cancellationToken));
+            });
         }
 
-        [RequiresPreviewFeatures]
-        public static Config.TranslationsObject GetTranslationsObject(Guid playerGuid)
+        public Config.TranslationsObject GetTranslationsObject()
         {
             return Translation.DefaultTranslation;
         }
@@ -43,14 +50,22 @@ namespace TestGateway1
             _receiver.Forward(packet);
         }
 
-        public void SetSkin(string skin)
+        public Task SetSkin(string skin)
         {
             // Ignore for now ig
+            return Task.CompletedTask;
         }
 
-        public void StartedReceivingCallback()
+        public Task SetSkin(string skin, CancellationToken cancellationToken)
         {
-            ServerConnection.ReceiveTilClosed();
+            // Ignore for now ig
+            return Task.CompletedTask;
+        }
+
+        public Task StartedReceivingCallback()
+        {
+            ServerConnection.ReceiveTilClosedAndDispose();
+            return Task.CompletedTask;
         }
 
 

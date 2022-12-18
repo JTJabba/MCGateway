@@ -6,16 +6,14 @@ using System.Buffers;
 namespace MCGateway.Protocol.Crypto
 {
     // Adapted from https://github.com/MCCTeam/Minecraft-Console-Client/blob/0907958ded2c5ac31f68bce4ed0ec8e246e2581e/MinecraftClient/Crypto/AesCfb8Stream.cs#L13
+    [SkipLocalsInit]
     public sealed class AesCfb8Stream : Stream
     {
         public const int BlockSize = 16;
-
-        private readonly Aes Aes;
-
-        private bool inStreamEnded = false;
-
-        private readonly byte[] _readStreamIV = new byte[16];
-        private readonly byte[] _writeStreamIV = new byte[16];
+        readonly Aes Aes;
+        bool inStreamEnded = false;
+        readonly byte[] _readStreamIV = new byte[16];
+        readonly byte[] _writeStreamIV = new byte[16];
 
         public Stream BaseStream { get; set; }
 
@@ -26,7 +24,7 @@ namespace MCGateway.Protocol.Crypto
             Aes = Aes.Create();
             Aes.BlockSize = 128;
             Aes.KeySize = 128;
-            Aes.Key = key;
+            Aes.Key = key; // Copies from byte array, no span support net7.0
             Aes.Mode = CipherMode.ECB;
             Aes.Padding = PaddingMode.None;
 

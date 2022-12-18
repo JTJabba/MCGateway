@@ -1,23 +1,26 @@
 ﻿using System.Buffers;
 using System.Data;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using JTJabba.EasyConfig;
 using Microsoft.Extensions.Logging;
 
 namespace MCGateway.Protocol.V759
 {
+    [SkipLocalsInit]
     public sealed class MCServerConnection : MCConnection, IMCServerConnection, IServerBoundReceiver
     {
-        private readonly ILogger _logger = GatewayLogging.CreateLogger<MCServerConnection>();
-        private bool _loggedIn;
-        private readonly IClientBoundReceiver _receiver;
+        readonly ILogger _logger = GatewayLogging.CreateLogger<MCServerConnection>();
+        bool _loggedIn = false;
+        readonly IClientBoundReceiver _receiver;
+
+        static readonly byte[] HandshakeBytes;
 
         public override string Username { get; init; }
         public override Guid UUID { get; init; }
         public override Config.TranslationsObject ClientTranslation { get; set; }
 
-        private static readonly byte[] HandshakeBytes;
 
         static MCServerConnection()
         {
@@ -37,8 +40,10 @@ namespace MCGateway.Protocol.V759
             buffer.CopyTo(HandshakeBytes.AsSpan(2 + protocolLength));
         }
 
-        public MCServerConnection(TcpClient tcpClient, string username, Guid uuid,
-            Config.TranslationsObject translation, IClientBoundReceiver receiver) : base(tcpClient, Config.BufferSizes.ClientBound)
+
+        public MCServerConnection(
+            TcpClient tcpClient, string username, Guid uuid, Config.TranslationsObject translation, IClientBoundReceiver receiver)
+            : base(tcpClient, Config.BufferSizes.ClientBound, (ulong)DateTime.UtcNow.Ticks)
         {
             _receiver = receiver;
             Username = username;
@@ -56,9 +61,6 @@ namespace MCGateway.Protocol.V759
                     buffer[offset++] = 0x00; // Packet id
                     offset += Packet.WriteString(buffer.AsSpan(offset), username); // Username
                     buffer[offset++] = 0x00; // Has sig data
-                    //buffer[offset++] = 0x01; // Has player uuid
-                    //UUID.TryWriteBytes(buffer.AsSpan(offset)); // Player uuid
-                    //offset += 16;
                     int packetLength = offset - 5;
                     offset = 5 - Packet.GetVarIntLength(packetLength);
                     Packet.WriteVarInt(buffer, offset, packetLength);
@@ -74,47 +76,52 @@ namespace MCGateway.Protocol.V759
             // Not supporting plugin requests for now, and they can't be passed to client not in login
             try
             {
-                Span<byte> loginPluginResponseBuffer = stackalloc byte[7];
+                _logger.LogDebug("Server reading packets");
+                Span<byte> loginPluginResponseBuffer = stackalloc byte[9];
                 do
                 {
-                    var packet = ReadPacket();
-                    _logger.LogDebug("Server constructor recieved packet with id " + packet.PacketID);
+                    using var packet = ReadPacketLogin();
                     try
                     {
-                        int packetID = packet.ReadByte();
-
-                        if (packetID == 0x02) // Login success
+                        _logger.LogDebug("received packet with id 0x" + packet.PacketID);
+                        if (packet.PacketID == 0x02) // Login success
                         {
                             _logger.LogInformation("Server login success");
                             _loggedIn = true;
-                            packet.Dispose();
                             return;
                         }
 
-                        if (packetID == 0x03) // Set compression
+                        if (packet.PacketID == 0x03) // Set compression
                         {
                             _compressionThreshold = packet.ReadVarInt();
-                            packet.Dispose();
                             continue;
                         }
 
-                        if (packetID == 0x04) // Login plugin request
+                        if (packet.PacketID == 0x04) // Login plugin request
                         {
-                            int messageID = packet.ReadVarInt();
-                            int offset = 0;
-                            loginPluginResponseBuffer[offset++] = 0x02; // Packet id
-                            offset += Packet.WriteVarInt(loginPluginResponseBuffer, 0, messageID); // Write same message id
-                            loginPluginResponseBuffer[offset++] = 0x00; // Successful bool
-                            WritePacket(loginPluginResponseBuffer.Slice(0, offset));
-                            packet.Dispose();
+                            int messageID = packet.ReadVarInt(out int responseLength);
+                            responseLength += 1; // Add packet id
+                            if (_compressionThreshold >= 0) ++responseLength; // If compressed format add slot for 0
+                            int offset = _compressionThreshold >= 0 ? 2 : 1; // Determine packet id offset
+                            loginPluginResponseBuffer[0] = (byte)responseLength; // Write packet length
+                            loginPluginResponseBuffer[1] = 0; // Initialize to 0 incase we skip (compressed format)
+                            loginPluginResponseBuffer[offset++] = 0x02; // Write packet id
+                            Packet.WriteVarInt(loginPluginResponseBuffer, offset++, messageID); // Write message id
+                            loginPluginResponseBuffer[offset] = 0x00; // Write successful bool (don't support plugins rn)
+
+                            _stream.Write(loginPluginResponseBuffer.Slice(0, 1 + responseLength)); // Account for length prefix
                             continue;
                         }
 
-                        throw new DataException("Server constructor received packet with unexpected id of " + packetID);
+                        throw new DataException("Server constructor received packet with unexpected id of " + packet.PacketID + "and number of 0x" + PacketsRead.ToString("X"));
                     }
                     catch (Exception e)
                     {
                         if (GatewayLogging.InDebug) _logger.LogWarning(e, "Exception during login process");
+                        throw;
+                    }
+                    finally
+                    {
                         packet.Dispose();
                     }
                 } while (true);
@@ -125,7 +132,10 @@ namespace MCGateway.Protocol.V759
                 if (GatewayConfig.RequireCompressedFormat)
                 {
                     if (_compressionThreshold <= 0 && _loggedIn)
-                        throw new DataException("GatewayConfig.RequireCompressedFormat is set to true. Backend servers must use compression");
+                    {
+                        _logger.LogError("GatewayConfig.RequireCompressedFormat is set to true. Backend servers must use compression");
+                        _loggedIn = false;
+                    }
                 }
             }
         }
@@ -145,26 +155,39 @@ namespace MCGateway.Protocol.V759
 
         public void Forward(Packet packet)
         {
-            try
-            {
-                WritePacket(packet.LengthPrefixedPacketBytes);
-            }
-            finally
-            {
-                packet.Dispose();
-            }
+            WritePacket(packet);
         }
 
         [RequiresPreviewFeatures]
-        public Task ReceiveTilClosed()
+        public Task ReceiveTilClosedAndDispose()
         {
             return Task.Run(() =>
             {
-                while (true)
+                try
                 {
-                    var packet = ReadPacket();
-                    //_logger.LogInformation("Received packet from server with ID {id}", packet.PacketID.ToString("X"));
-                    _receiver.Forward(packet);
+                    while (true)
+                    {
+                        var packet = ReadPacket();
+                        _receiver.Forward(packet);
+                    }
+                }
+                catch (MCConnectionClosedException) { throw; }
+                catch (InvalidDataException ex)
+                {
+                    if (GatewayLogging.Config.LogServerInvalidDataException)
+                    {
+                        _logger.LogWarning(ex, "InvalidDataException occurred while ServerConnection was receiving");
+                    }
+                    throw new MCConnectionClosedException();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Uncaught exception occurred while ServerConnection was receiving");
+                    throw new MCConnectionClosedException();
+                }
+                finally
+                {
+                    Dispose();
                 }
             });
         }

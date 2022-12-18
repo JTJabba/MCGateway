@@ -122,21 +122,28 @@ namespace MCGateway
 
             // Leave room for length prefix
             byte[] buffer = ArrayPool<byte>.Shared.Rent(packetLength + GetVarIntLength(packetLength));
+            try
+            {
+                // Write packet length
+                int bytesWritten = WriteVarInt(buffer, 0, packetLength);
 
-            // Write packet length
-            int bytesWritten = WriteVarInt(buffer, 0, packetLength);
+                // Write packet ID
+                buffer[bytesWritten++] = 0x00;
 
-            // Write packet ID
-            buffer[bytesWritten++] = 0x00;
+                // Write statusResponse length prefix
+                bytesWritten += WriteVarInt(buffer, bytesWritten, statusResponseByteLength);
 
-            // Write statusResponse length prefix
-            bytesWritten += WriteVarInt(buffer, bytesWritten, statusResponseByteLength);
+                // Write statusResponse
+                Encoding.UTF8.GetBytes(statusResponse, 0, statusResponse.Length, buffer, bytesWritten);
+                bytesWritten += statusResponseByteLength;
 
-            // Write statusResponse
-            Encoding.UTF8.GetBytes(statusResponse, 0, statusResponse.Length, buffer, bytesWritten);
-            bytesWritten += statusResponseByteLength;
-
-            return (buffer, bytesWritten);
+                return (buffer, bytesWritten);
+            }
+            catch
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+                throw;
+            }
 
             int GetVarIntLength(int value)
             {

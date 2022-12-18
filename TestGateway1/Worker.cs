@@ -6,8 +6,8 @@ namespace TestGateway1
 {
     public class Worker : BackgroundService
     {
-        private readonly ILogger<Worker> _logger;
-        private readonly ILoggerFactory _loggerFactory;
+        readonly ILogger<Worker> _logger;
+        readonly ILoggerFactory _loggerFactory;
 
         public Worker(ILogger<Worker> logger, ILoggerFactory loggerFactory)
         {
