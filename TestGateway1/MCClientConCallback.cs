@@ -30,7 +30,6 @@ namespace TestGateway1
             _receiver = serverConnection;
             ServerConnection = serverConnection;
         }
-        [RequiresPreviewFeatures]
         public static Task<object> GetCallback(
             string username, Guid uuid, string? skin, IClientBoundReceiver selfReceiver, CancellationToken cancellationToken)
         {

@@ -47,8 +47,7 @@ namespace MCGateway.Protocol
         /// <summary>
         /// Returns true if loginRequested
         /// </summary>
-        [RequiresPreviewFeatures]
-        public static unsafe bool TryHandleTilLogin<GatewayConnectionCallback>(
+        public static bool TryHandleTilLogin<GatewayConnectionCallback>(
             TcpClient tcpClient,
             out (string ServerAddress, ushort ServerPort, int ProtocolVersion) handshake
             )
@@ -160,7 +159,7 @@ namespace MCGateway.Protocol
             }
 #if DEBUG
             catch (MCConnectionClosedException) { }
-            catch (Exception e) { _logger.LogDebug(e, "Error while handling early connection"); }
+            catch (Exception ex) { _logger.LogDebug(ex, "Error while handling early connection"); }
 #else
             catch { }
 #endif

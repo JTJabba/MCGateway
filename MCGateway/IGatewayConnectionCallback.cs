@@ -11,8 +11,7 @@ namespace MCGateway
     {
         public bool InOfflineMode { get; }
 
-        // Return new instance of a callback. 
-        [RequiresPreviewFeatures]
+        // Return new instance of a callback.
         public static abstract IGatewayConnectionCallback GetCallback((string serverAddress, ushort serverPort, int protocolVersion) handshake);
 
 
@@ -23,7 +22,6 @@ namespace MCGateway
         /// </summary>
         /// <param name="handshake"></param>
         /// <returns></returns>
-        [RequiresPreviewFeatures]
         public static abstract ReadOnlySpan<byte> GetStatusResponse((string ServerAddress, ushort ServerPort, int ProtocolVersion) handshake);
         
         /// <summary>
@@ -32,10 +30,8 @@ namespace MCGateway
         /// <param name="username"></param>
         /// <param name="uuid"></param>
         /// <returns></returns>
-        [RequiresPreviewFeatures]
         public static abstract bool TryAddOnlinePlayer(string username, Guid uuid);
 
-        [RequiresPreviewFeatures]
         public static abstract void RemoveOnlinePlayer(Guid uuid);
 
         /// <summary>

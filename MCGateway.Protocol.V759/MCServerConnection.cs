@@ -76,17 +76,14 @@ namespace MCGateway.Protocol.V759
             // Not supporting plugin requests for now, and they can't be passed to client not in login
             try
             {
-                _logger.LogDebug("Server reading packets");
                 Span<byte> loginPluginResponseBuffer = stackalloc byte[9];
                 do
                 {
                     using var packet = ReadPacketLogin();
                     try
                     {
-                        _logger.LogDebug("received packet with id 0x" + packet.PacketID);
                         if (packet.PacketID == 0x02) // Login success
                         {
-                            _logger.LogInformation("Server login success");
                             _loggedIn = true;
                             return;
                         }
@@ -113,11 +110,11 @@ namespace MCGateway.Protocol.V759
                             continue;
                         }
 
-                        throw new DataException("Server constructor received packet with unexpected id of " + packet.PacketID + "and number of 0x" + PacketsRead.ToString("X"));
+                        throw new InvalidDataException("Server constructor received packet with unexpected id of " + packet.PacketID + "and number of 0x" + PacketsRead.ToString("X"));
                     }
-                    catch (Exception e)
+                    catch (Exception ex)
                     {
-                        if (GatewayLogging.InDebug) _logger.LogWarning(e, "Exception during login process");
+                        if (GatewayLogging.InDebug) _logger.LogWarning(ex, "Exception during login process");
                         throw;
                     }
                     finally
@@ -125,7 +122,6 @@ namespace MCGateway.Protocol.V759
                         packet.Dispose();
                     }
                 } while (true);
-
             }
             finally
             {
@@ -140,7 +136,6 @@ namespace MCGateway.Protocol.V759
             }
         }
 
-        [RequiresPreviewFeatures]
         public static MCServerConnection? GetLoggedInServerConnection(
                 TcpClient tcpClient,
                 string username,
@@ -158,7 +153,6 @@ namespace MCGateway.Protocol.V759
             WritePacket(packet);
         }
 
-        [RequiresPreviewFeatures]
         public Task ReceiveTilClosedAndDispose()
         {
             return Task.Run(() =>
@@ -172,17 +166,15 @@ namespace MCGateway.Protocol.V759
                     }
                 }
                 catch (MCConnectionClosedException) { throw; }
-                catch (InvalidDataException ex)
-                {
-                    if (GatewayLogging.Config.LogServerInvalidDataException)
-                    {
-                        _logger.LogWarning(ex, "InvalidDataException occurred while ServerConnection was receiving");
-                    }
-                    throw new MCConnectionClosedException();
-                }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Uncaught exception occurred while ServerConnection was receiving");
+                    if (ex is IOException)
+                        throw new MCConnectionClosedException();
+                    if (GatewayLogging.Config.LogServerInvalidDataException && ex is InvalidDataException)
+                        _logger.LogWarning(ex, "InvalidDataException occurred while ServerConnection was receiving");
+                    else
+                        _logger.LogWarning(ex, "Uncaught exception occurred while ServerConnection was receiving");
+
                     throw new MCConnectionClosedException();
                 }
                 finally
@@ -193,7 +185,6 @@ namespace MCGateway.Protocol.V759
         }
 
 
-        [RequiresPreviewFeatures]
         protected override void Dispose(bool disposing)
         {
             if (isDisposed) return;

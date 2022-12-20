@@ -22,7 +22,6 @@ namespace MCGateway.Protocol.V759
     {
         readonly ILogger _logger = GatewayLogging.CreateLogger<MCClientConnection<ConnectionCallback>>();
         readonly bool _loggedIn = false;
-        [RequiresPreviewFeatures]
         readonly IMCClientConnectionCallback _callback;
 
         static readonly RSACryptoServiceProvider RSAProvider = new(1024);
@@ -72,7 +71,6 @@ namespace MCGateway.Protocol.V759
         }
 
 #pragma warning disable CS8618 // Object wont be returned from public method if it isn't valid
-        [RequiresPreviewFeatures]
         MCClientConnection(TcpClient tcpClient)
             : base(tcpClient, Config.BufferSizes.ServerBound, (ulong)DateTime.UtcNow.Ticks)
 #pragma warning restore CS8618
@@ -294,7 +292,7 @@ namespace MCGateway.Protocol.V759
                 return;
             }
 #if DEBUG
-            catch (Exception e) { _logger.LogDebug(e, $"Exception occurred during login process"); }
+            catch (Exception ex) { _logger.LogDebug(ex, $"Exception occurred during login process"); }
 #else
             catch { }
 #endif
@@ -336,7 +334,6 @@ namespace MCGateway.Protocol.V759
         /// <typeparam name="MCConnectionCallback"></typeparam>
         /// <param name="tcpClient"></param>
         /// <returns></returns>
-        [RequiresPreviewFeatures]
         public static MCClientConnection<MCConnectionCallback>? GetLoggedInClientConnection
             <MCConnectionCallback>(TcpClient tcpClient)
             where MCConnectionCallback : IMCClientConnectionCallback
@@ -366,7 +363,6 @@ namespace MCGateway.Protocol.V759
             WritePacket(packet);
         }
 
-        [RequiresPreviewFeatures]
         public Task ReceiveTilClosedAndDispose()
         {
             _callback.StartedReceivingCallback();
@@ -381,17 +377,15 @@ namespace MCGateway.Protocol.V759
                     }
                 }
                 catch (MCConnectionClosedException) { throw; }
-                catch (InvalidDataException ex)
-                {
-                    if (GatewayLogging.Config.LogClientInvalidDataException)
-                    {
-                        _logger.LogDebug(ex, "InvalidDataException occurred while ClientConnection was receiving");
-                    }
-                    throw new MCConnectionClosedException();
-                }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Uncaught exception occurred while ClientConnection was receiving");
+                    if (ex is IOException)
+                        throw new MCConnectionClosedException();
+                    if (GatewayLogging.Config.LogClientInvalidDataException && ex is InvalidDataException)
+                        _logger.LogDebug(ex, "InvalidDataException occurred while ClientConnection was receiving");
+                    else
+                        _logger.LogWarning(ex, "Uncaught exception occurred while ClientConnection was receiving");
+
                     throw new MCConnectionClosedException();
                 }
                 finally
@@ -420,7 +414,6 @@ namespace MCGateway.Protocol.V759
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
 
-        [RequiresPreviewFeatures]
         protected override void Dispose(bool disposing)
         {
             if (isDisposed) return;

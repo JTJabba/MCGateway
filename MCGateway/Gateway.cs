@@ -13,7 +13,7 @@ namespace MCGateway
         where GatewayConnectionCallback : IGatewayConnectionCallback
     {
         bool _disposed = false;
-        readonly ILogger logger;
+        readonly ILogger _logger;
         TcpListener tcpListener;
         readonly CancellationToken stoppingToken;
 
@@ -33,13 +33,12 @@ namespace MCGateway
         public Gateway(string[] configPaths, CancellationToken stoppingToken, ILoggerFactory? loggerFactory = null)
         {
             if (loggerFactory != null) GatewayLogging.LoggerFactory = loggerFactory;
-            logger = GatewayLogging.CreateLogger<Gateway<GatewayConnectionCallback>>();
+            _logger = GatewayLogging.CreateLogger<Gateway<GatewayConnectionCallback>>();
             this.stoppingToken = stoppingToken;
             tcpListener = new TcpListener(IPAddress.Any, Config.ListeningPort);
             ConfigLoader.Load(configPaths);
         }
 
-        [RequiresPreviewFeatures]
         public void StartListening()
         {
             if (IsListening)
@@ -48,7 +47,7 @@ namespace MCGateway
             tcpListener.Start();
             IsListening = true;
             _ = AcceptConnectionsAsync(tcpListener);
-            logger.LogInformation("Gateway started listening on port {p}", Config.ListeningPort);
+            _logger.LogInformation("Gateway started listening on port {p}", Config.ListeningPort);
         }
 
         public void StopListening()
@@ -61,7 +60,6 @@ namespace MCGateway
             tcpListener.Stop();
         }
 
-        [RequiresPreviewFeatures]
         Task AcceptConnectionsAsync(TcpListener listener)
         {
             return Task.Run(async () =>
@@ -78,19 +76,17 @@ namespace MCGateway
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Failed accepting TCP connection. Gateway stopped listening.");
+                    _logger.LogError(ex, "Failed accepting TCP connection. Gateway stopped listening.");
                     client?.Close();
                     StopListening();
                 }
             });
         }
 
-        [RequiresPreviewFeatures]
         void ConnectionAccepted(TcpClient client)
         {
             Task.Run(() =>
             {
-                if (GatewayLogging.InDebug) logger.LogDebug("accepted connection");
                 GatewayConnection<GatewayConnectionCallback>? gatewayConnection = null;
                 try
                 {
@@ -104,11 +100,11 @@ namespace MCGateway
                     client, GatewayConnectionDisposedCallback, stoppingToken);
                     if (gatewayConnection == null) return;
                     
-                    Connections.TryAdd((ushort)((IPEndPoint)gatewayConnection.ClientConnection.Client.Client.LocalEndPoint!).Port, gatewayConnection);
+                    Connections.TryAdd(gatewayConnection.Port, gatewayConnection);
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Error handling new connection");
+                    _logger.LogWarning(ex, "Error handling new connection");
                     client.Close();
                     gatewayConnection?.Dispose();
                 }
@@ -117,17 +113,15 @@ namespace MCGateway
 
         void GatewayConnectionDisposedCallback(GatewayConnection<GatewayConnectionCallback> con)
         {
-            Connections.Remove((ushort)((IPEndPoint)con.ClientConnection.Client.Client.LocalEndPoint!).Port, out _);
+            Connections.Remove(con.Port, out _);
         }
 
 
-        [RequiresPreviewFeatures]
         public void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-        [RequiresPreviewFeatures]
         void Dispose(bool disposing)
         {
             if (_disposed)

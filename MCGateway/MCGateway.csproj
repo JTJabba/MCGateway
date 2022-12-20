@@ -8,19 +8,10 @@
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>MCGateway</PackageId>
 		<Title>MCGateway</Title>
-		<Version>0.0.79</Version>
+		<Version>0.0.81</Version>
 		<Authors>JTJabba</Authors>
 		<UserSecretsId>dotnet-ReverseProxy-1225C1A2-DAF7-4A65-B78C-C92ADFBE9D03</UserSecretsId>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-	</PropertyGroup>
-
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-		<LangVersion>preview</LangVersion>
-	</PropertyGroup>
-
-	<!--Preview needed for C#11 static abstract methods. Search for RequiresPreviewFeatures-->
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-		<LangVersion>preview</LangVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -53,13 +44,13 @@ need to get stopListening implemented correctly
 
 need to check everywhere _compressionThreshold of 0 doesn't disable compression
 
-test if MCClientConnection(TcpClient) constructor is internal. If so make private
-
-test if nested class AuthResponse is internal. If so make private
-
 need to decide how to deal with UUID in offline mode. MCClientConnection currently generates random one
 
 look into writing packets to stream together for pre play state stuff
 
-fix varint too big bug
+need to look through GatewayConnection.GetGatewayConnection and account for all cases where IMCClientConnection could throw.
+
+add logging for writepacket failing to compress
+
+add logging for exceptions in writepacket and account for ObjectDisposedExceptions as smooth shutdowns
 -->

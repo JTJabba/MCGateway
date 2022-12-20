@@ -107,12 +107,11 @@ namespace MCGateway.Protocol.V759
                     packetIDLength);
 
             }
-            catch (Exception ex)
+            catch (Exception ex) when (
+                ex is not MCConnectionClosedException &&
+                ex is not InvalidDataException)
             {
                 ArrayPool<byte>.Shared.Return(data);
-
-                if (ex is MCConnectionClosedException ||
-                    ex is InvalidDataException) throw;
 
                 GatewayLogging.LogPacket(
                     _logger,
@@ -188,15 +187,6 @@ namespace MCGateway.Protocol.V759
                 // Compressed
                 else if (packet.RawCompressedPacketLength != 0)
                 {
-                    if (PacketsWrite < 10)
-                    {
-                        _logger.LogInformation("writing cached packet");
-                        var buf = packet.Data;
-                        int offset = packet.RawCompressedPacketOffset;
-                        _logger.LogInformation("start bytes: " + buf[offset].ToString("X") + buf[offset + 1].ToString("X") + buf[offset + 2].ToString("X"));
-                        offset = offset + packet.RawCompressedPacketLength - 1;
-                        _logger.LogInformation("end bytes: " + buf[offset].ToString("X") + buf[offset - 1].ToString("X") + buf[offset - 2].ToString("X"));
-                    }
                     rawPacket =
                         packet.Data.AsSpan(
                             packet.RawCompressedPacketOffset,

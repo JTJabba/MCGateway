@@ -11,30 +11,32 @@ namespace MCGateway
     public sealed class GatewayConnection<GatewayConnectionCallback> : IDisposable
         where GatewayConnectionCallback : IGatewayConnectionCallback
     {
-        bool _disposed = true;
-        static readonly ILogger logger = GatewayLogging.CreateLogger<GatewayConnection<GatewayConnectionCallback>>();
+        bool _disposed = false;
+        static readonly ILogger _logger = GatewayLogging.CreateLogger<GatewayConnection<GatewayConnectionCallback>>();
         readonly CancellationToken _stoppingToken;
         readonly Action<GatewayConnection<GatewayConnectionCallback>> _disposedCallback;
         
+        public ushort Port { get; init; }
         public IGatewayConnectionCallback Callback { get; init; }
         public IMCClientConnection ClientConnection { get; set; }
 
-        [RequiresPreviewFeatures]
+
         public GatewayConnection(
             IMCClientConnection clientConnection,
             IGatewayConnectionCallback callback,
             Action<GatewayConnection<GatewayConnectionCallback>> disposedCallback,
-            CancellationToken stoppingToken)
+            CancellationToken stoppingToken,
+            ushort port)
         {
             ClientConnection = clientConnection;
             Callback = callback;
             _disposedCallback = disposedCallback;
             _stoppingToken = stoppingToken;
+            Port = port;
 
             StartReceive();
         }
 
-        [RequiresPreviewFeatures]
         public static GatewayConnection<GatewayConnectionCallback>? GetGatewayConnection(
             TcpClient tcpClient,
             Action<GatewayConnection<GatewayConnectionCallback>> disposedCallback,
@@ -45,52 +47,60 @@ namespace MCGateway
             {
                 if (!EarlyConnectionHandler.TryHandleTilLogin<GatewayConnectionCallback>(tcpClient, out var handshake))
                 {
-                    if (GatewayLogging.InDebug) logger.LogDebug("Connection closed");
                     tcpClient.Close();
                     return null;
                 }
 
-                if (GatewayLogging.InDebug) logger.LogDebug("Login requested");
                 var callback = GatewayConnectionCallback.GetCallback(handshake);
                 clientCon = callback.GetLoggedInClientConnection(tcpClient);
 
                 if (clientCon == null)
                 {
-                    if (GatewayLogging.InDebug) logger.LogDebug("Gateway got null client connection");
                     return null;
                 }
 
-                if (GatewayLogging.InDebug) logger.LogDebug("Gateway got client connection");
                 if (!GatewayConnectionCallback.TryAddOnlinePlayer(clientCon.Username, clientCon.UUID))
                 {
-                    clientCon.Disconnect(clientCon.ClientTranslation.DisconnectPlayerAlreadyOnline);
+                    try { clientCon.Disconnect(clientCon.ClientTranslation.DisconnectPlayerAlreadyOnline); } catch { }
                     clientCon.Dispose();
                     return null;
                 }
 
-                clientCon.Client.SendTimeout = Config.KeepAlive.ClientEnstablishedTimeoutMs;
-                clientCon.Client.ReceiveTimeout = Config.KeepAlive.ClientEnstablishedTimeoutMs;
+                ushort? port = null;
+                try
+                {
+                    clientCon.Client.SendTimeout = Config.KeepAlive.ClientEnstablishedTimeoutMs;
+                    clientCon.Client.ReceiveTimeout = Config.KeepAlive.ClientEnstablishedTimeoutMs;
+
+                    port = (ushort)((IPEndPoint)clientCon.Client.Client.LocalEndPoint!).Port;
+                }
+#if DEBUG
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Exception occured while setting up clientCon timeouts and getting port");
+                }
+#else
+                catch { }
+#endif
+                if (port == null) return null;
 
                 return new GatewayConnection<GatewayConnectionCallback>(
                     clientCon,
                     callback,
                     disposedCallback,
-                    stoppingToken);
+                    stoppingToken,
+                    (ushort)port);
 
             }
-            catch (MCConnectionClosedException e)
+            catch (MCConnectionClosedException) { }
+            catch (Exception ex)
             {
-                if (GatewayLogging.InDebug) logger.LogDebug(e, "MC connection closed");
-            }
-            catch (Exception e)
-            {
-                logger.LogError(e, "Unhandled error in gateway connection. Closing connection");
+                _logger.LogError(ex, "Unhandled error in gateway connection. Closing connection");
             }
             clientCon?.Dispose();
             return null;
         }
 
-        [RequiresPreviewFeatures]
         void StartReceive()
         {
             Task.Run(async () =>
@@ -101,14 +111,11 @@ namespace MCGateway
         }
 
 
-        [RequiresPreviewFeatures]
         public void Dispose()
         {
-            if (GatewayLogging.InDebug) logger.LogInformation("Gateway connection cleaning up");
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-        [RequiresPreviewFeatures]
         void Dispose(bool disposing)
         {
             if (_disposed)
@@ -123,9 +130,9 @@ namespace MCGateway
                 {
                     _disposedCallback(this);
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    logger.LogError(e, "DisposedCallback provided to GatewayConnection threw");
+                    _logger.LogError(ex, "DisposedCallback provided to GatewayConnection threw");
                 }
             }
             _disposed = true;

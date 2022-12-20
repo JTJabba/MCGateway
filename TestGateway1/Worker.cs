@@ -16,7 +16,6 @@ namespace TestGateway1
             _loggerFactory.AddFile($"{Directory.GetCurrentDirectory()}\\Logs\\log.txt");
         }
 
-        [RequiresPreviewFeatures]
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             var gateway = new Gateway<GatewayConCallback>(new string[]{"settings.MCGateway.json", "translations.MCGateway.json"}, stoppingToken, _loggerFactory);

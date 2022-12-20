@@ -17,7 +17,6 @@ namespace MCGateway.Protocol.V759
         /// <param name="translation"></param>
         /// <param name="selfRecever"></param>
         /// <returns></returns>
-        [RequiresPreviewFeatures]
         public static abstract Task<object> GetCallback
             (string username, Guid uuid, string? skin, IClientBoundReceiver selfRecever, CancellationToken cancellationToken);
         
