@@ -7,7 +7,7 @@
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>MCGateway.Protocol.V759</PackageId>
 		<Title>MCGateway.Protocol.V759</Title>
-		<Version>0.0.173-debug</Version>
+		<Version>0.0.174-debug</Version>
 		<Authors>JTJabba</Authors>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
@@ -26,7 +26,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="MCGateway" Version="0.0.77" />
+		<PackageReference Include="MCGateway" Version="0.0.78" />
 		<PackageReference Include="JTJabba.Utils" Version="0.0.13" />
 		<PackageReference Include="LibDeflate.NET" Version="1.9.1" />
 		<PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />

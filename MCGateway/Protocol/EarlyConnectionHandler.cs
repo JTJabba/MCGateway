@@ -12,7 +12,7 @@ namespace MCGateway.Protocol
     [SkipLocalsInit]
     public static class EarlyConnectionHandler
     {
-        static ILogger logger = GatewayLogging.CreateLogger("EarlyConnectionHandler");
+        static ILogger _logger = GatewayLogging.CreateLogger("EarlyConnectionHandler");
         internal static Dictionary<string, byte[]> CachedClientConnectionStrings = new();
 
         static readonly byte[] LegacyKickPacket = new byte[]
@@ -93,12 +93,11 @@ namespace MCGateway.Protocol
                         ArrayPool<byte>.Shared.Return(handshakePacket);
                     }
                 }
-                if (GatewayLogging.InDebug) logger.LogDebug("nextState = " + nextState);
+                
                 // Handle status state
                 if (nextState == 1)
                 {
                     // Read status request
-                    if (GatewayLogging.InDebug) logger.LogDebug("Reading status request");
                     {
 #pragma warning disable
                         int bytesRemaining = 2;
@@ -112,7 +111,6 @@ namespace MCGateway.Protocol
                     }
 
                     // Send Status Response
-                    if (GatewayLogging.InDebug) logger.LogDebug("Sending status response");
                     netstream.Write(GatewayConnectionCallback.GetStatusResponse(handshake));
 
 
@@ -125,42 +123,35 @@ namespace MCGateway.Protocol
                         // If in debug log properly if not assume it understands
                         if (GatewayLogging.InDebug && packetLength == 0xFE) // Should be 0x09 otherwise
                         {
-                            logger.LogWarning("Recieved legacy ping after status response. Status response may have been formatted incorrectly");
+                            _logger.LogWarning("Recieved legacy ping after status response. Status response may have been formatted incorrectly");
                             netstream.Write(LegacyKickPacket);
                             return false;
                         }
                         if (packetLength != 0x09) return false;
-                        if (GatewayLogging.InDebug) logger.LogDebug("Recieved ping request");
-                        var pingRequest = ArrayPool<byte>.Shared.Rent(0x09);
-                        try
+
+                        // Read ping request to buffer leaving room to length prefix (for turning into response)
+                        Span<byte> pingRequest = stackalloc byte[10];
+                        int bytesRemaining = 9;
+                        do
                         {
-                            int bytesRemaining = 0x09;
-                            do
-                            {
-                                int bytesRead = netstream.Read(pingRequest, 0x09 - bytesRemaining, bytesRemaining);
-                                if (bytesRead < 1) return false;
-                                bytesRemaining -= bytesRead;
-                            } while (bytesRemaining > 0);
+                            int bytesRead = netstream.Read(pingRequest.Slice(10 - bytesRemaining));
+                            if (bytesRead < 1) return false;
+                            bytesRemaining -= bytesRead;
+                        } while (bytesRemaining > 0);
 
-                            // Allocate array for ping response
-                            byte* pingResponsePtr = stackalloc byte[10];
-                            var pingReponseSpan = new Span<byte>(pingResponsePtr, 10);
+                        // Add packet length prefix to turn into ping response. Both have packet ID 0x01
+                        pingRequest[0] = 0x09;
 
-                            // Add packet length and packetID
-                            *pingResponsePtr++ = 0x09;
-                            *pingResponsePtr++ = 0x01;
-
-                            // Read ping payload into ping response
-                            pingRequest.AsSpan(1, 8).CopyTo(pingReponseSpan.Slice(2, 8));
-
-                            // Send ping response
-                            netstream.Write(pingReponseSpan);
-                            if (GatewayLogging.InDebug) logger.LogDebug("Sent ping response");
-                        }
-                        finally
+                        if (GatewayConfig.Debug.CheckPacketIDsDuringLogin && pingRequest[1] != 0x01)
                         {
-                            ArrayPool<byte>.Shared.Return(pingRequest);
+                            _logger.LogDebug(
+                                "Received invalid packet ID while reading ping request. Expected 0x01, got {packetID}",
+                                pingRequest[1]);
+                            return false;
                         }
+
+                        // Send ping response
+                        netstream.Write(pingRequest);
                     }
                 }
 
@@ -169,7 +160,7 @@ namespace MCGateway.Protocol
             }
 #if DEBUG
             catch (MCConnectionClosedException) { }
-            catch (Exception e) { logger.LogDebug(e, "Error while handling early connection"); }
+            catch (Exception e) { _logger.LogDebug(e, "Error while handling early connection"); }
 #else
             catch { }
 #endif
@@ -230,14 +221,14 @@ namespace MCGateway.Protocol
                     {
                         str = cachedStr.Key;
 #if DEBUG
-                                logger.LogDebug("TargetServerString Cache hit '{string}'", str);
+                                _logger.LogDebug("TargetServerString Cache hit '{string}'", str);
 #endif
                     }
                 if (str == null)
                 {
                     str = Encoding.UTF8.GetString(bytes);
 #if DEBUG
-                            logger.LogDebug("TargetServerString Cache miss '{string}'", str);
+                            _logger.LogDebug("TargetServerString Cache miss '{string}'", str);
 #endif
                     if (str.Length > 255)
                         throw new InvalidDataException("TargetServer string oversized");
