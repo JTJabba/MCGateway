@@ -8,7 +8,7 @@
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>MCGateway</PackageId>
 		<Title>MCGateway</Title>
-		<Version>0.0.78</Version>
+		<Version>0.0.79</Version>
 		<Authors>JTJabba</Authors>
 		<UserSecretsId>dotnet-ReverseProxy-1225C1A2-DAF7-4A65-B78C-C92ADFBE9D03</UserSecretsId>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>

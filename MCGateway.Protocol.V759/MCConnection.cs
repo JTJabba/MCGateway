@@ -92,14 +92,6 @@ namespace MCGateway.Protocol.V759
                 compressedDataOffset += dataLengthLength;
                 ReadBytesToBuffer(data, compressedDataOffset, compressedDataLength);
                 
-                if (PacketsRead < 10)
-                {
-                    _logger.LogDebug("dataLengthLength: " + dataLengthLength);
-                    _logger.LogDebug("dataLength: " + dataLength);
-                    _logger.LogDebug("compressedDataOffset: " + compressedDataOffset);
-                    _logger.LogDebug("compressedDataLength: " + compressedDataLength);
-                }
-                
                 // Decompress data
                 if (_decompressor.Decompress(
                     data.AsSpan(compressedDataOffset, compressedDataLength),
@@ -107,38 +99,13 @@ namespace MCGateway.Protocol.V759
                     out _)
                     != OperationStatus.Done) throw new InvalidDataException("Decompression failed");
 
-                //return new Packet(
-                //    data,
-                //    Packet.SCRATCHSPACE + dataLength,
-                //    packetLengthLength + packetLength,
-                //    Packet.ReadVarInt(data.AsSpan(Packet.SCRATCHSPACE, dataLength), ref packetLength),
-                //    packetIDLength);
+                return new Packet(
+                    data,
+                    Packet.SCRATCHSPACE + dataLength,
+                    packetLengthLength + packetLength,
+                    Packet.ReadVarInt(data.AsSpan(Packet.SCRATCHSPACE, dataLength), ref packetIDLength),
+                    packetIDLength);
 
-                Span<byte> buf = stackalloc byte[5];
-                buf.Clear();
-                var span2red = data.AsSpan(Packet.SCRATCHSPACE, dataLength);
-                var span2copi = span2red.Slice(0, Math.Min(span2red.Length, 5));
-                span2copi.CopyTo(buf);
-                try
-                {
-                    return new Packet(
-                                        data,
-                                        Packet.SCRATCHSPACE + dataLength,
-                                        packetLengthLength + packetLength,
-                                        Packet.ReadVarInt(span2red, ref packetLength),
-                                        packetIDLength);
-                }
-                catch
-                {
-                    _logger.LogDebug("Fail return paket! first paket data: " +
-                        buf[0].ToString("X") + " " +
-                        buf[1].ToString("X") + " " +
-                        buf[2].ToString("X") + " " +
-                        buf[3].ToString("X") + " " +
-                        buf[4].ToString("X")
-                        );
-                    throw;
-                }
             }
             catch (Exception ex)
             {

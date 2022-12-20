@@ -134,7 +134,7 @@ namespace MCGateway.Protocol
                         int bytesRemaining = 9;
                         do
                         {
-                            int bytesRead = netstream.Read(pingRequest.Slice(10 - bytesRemaining));
+                            int bytesRead = netstream.Read(pingRequest.Slice(10 - bytesRemaining, bytesRemaining));
                             if (bytesRead < 1) return false;
                             bytesRemaining -= bytesRead;
                         } while (bytesRemaining > 0);
