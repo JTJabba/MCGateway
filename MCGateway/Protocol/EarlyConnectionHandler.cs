@@ -4,7 +4,6 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
-using System.Runtime.Versioning;
 using System.Text;
 
 namespace MCGateway.Protocol

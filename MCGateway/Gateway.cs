@@ -1,11 +1,8 @@
 ﻿using JTJabba.EasyConfig;
 using JTJabba.EasyConfig.Loader;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.Versioning;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MCGateway
 {
@@ -91,8 +88,8 @@ namespace MCGateway
                 try
                 {
                     client.NoDelay = true;
-                    client.ReceiveTimeout = Config.KeepAlive.ClientInitialTimeoutMs;
-                    client.SendTimeout = Config.KeepAlive.ClientInitialTimeoutMs;
+                    client.ReceiveTimeout = Config.Timeouts.Clients.InitialTimeout;
+                    client.SendTimeout = Config.Timeouts.Clients.InitialTimeout;
                     client.ReceiveBufferSize = Config.BufferSizes.ServerBound;
                     client.SendBufferSize = Config.BufferSizes.ClientBound;
 

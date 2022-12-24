@@ -2,7 +2,6 @@
 using System.Buffers;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
-using System.Runtime.Versioning;
 using System.Text;
 
 namespace MCGateway
@@ -25,7 +24,7 @@ namespace MCGateway
         public static abstract ReadOnlySpan<byte> GetStatusResponse((string ServerAddress, ushort ServerPort, int ProtocolVersion) handshake);
         
         /// <summary>
-        /// Should connect to external logic for tracking online players
+        /// Should connect to external logic for tracking online players.
         /// </summary>
         /// <param name="username"></param>
         /// <param name="uuid"></param>

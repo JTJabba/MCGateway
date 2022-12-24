@@ -8,7 +8,7 @@
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>MCGateway</PackageId>
 		<Title>MCGateway</Title>
-		<Version>0.0.81</Version>
+		<Version>0.0.86</Version>
 		<Authors>JTJabba</Authors>
 		<UserSecretsId>dotnet-ReverseProxy-1225C1A2-DAF7-4A65-B78C-C92ADFBE9D03</UserSecretsId>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -44,13 +44,15 @@ need to get stopListening implemented correctly
 
 need to check everywhere _compressionThreshold of 0 doesn't disable compression
 
-need to decide how to deal with UUID in offline mode. MCClientConnection currently generates random one
-
 look into writing packets to stream together for pre play state stuff
-
-need to look through GatewayConnection.GetGatewayConnection and account for all cases where IMCClientConnection could throw.
 
 add logging for writepacket failing to compress
 
 add logging for exceptions in writepacket and account for ObjectDisposedExceptions as smooth shutdowns
+
+troubleshoot online mode authentication failing with 'Got null or zero length response' half the time
+
+add clean logging for 'System.Net.Sockets.SocketException (111): Connection refused' when can't connect to backend server
+
+add GatewayLogging.Config switch for troubleshooting early MCClientConnections
 -->

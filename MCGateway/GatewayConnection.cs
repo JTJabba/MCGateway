@@ -2,7 +2,6 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
-using System.Runtime.Versioning;
 using JTJabba.EasyConfig;
 
 namespace MCGateway
@@ -59,18 +58,11 @@ namespace MCGateway
                     return null;
                 }
 
-                if (!GatewayConnectionCallback.TryAddOnlinePlayer(clientCon.Username, clientCon.UUID))
-                {
-                    try { clientCon.Disconnect(clientCon.ClientTranslation.DisconnectPlayerAlreadyOnline); } catch { }
-                    clientCon.Dispose();
-                    return null;
-                }
-
                 ushort? port = null;
                 try
                 {
-                    clientCon.Client.SendTimeout = Config.KeepAlive.ClientEnstablishedTimeoutMs;
-                    clientCon.Client.ReceiveTimeout = Config.KeepAlive.ClientEnstablishedTimeoutMs;
+                    clientCon.Client.SendTimeout = Config.Timeouts.Clients.EnstablishedTimeout;
+                    clientCon.Client.ReceiveTimeout = Config.Timeouts.Clients.EnstablishedTimeout;
 
                     port = (ushort)((IPEndPoint)clientCon.Client.Client.LocalEndPoint!).Port;
                 }
@@ -82,7 +74,11 @@ namespace MCGateway
 #else
                 catch { }
 #endif
-                if (port == null) return null;
+                if (port == null)
+                {
+                    clientCon.Dispose();
+                    return null;
+                }
 
                 return new GatewayConnection<GatewayConnectionCallback>(
                     clientCon,

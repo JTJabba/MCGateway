@@ -1,18 +1,17 @@
-﻿using MCGateway;
-using MCGateway.Protocol.V759.DataTypes;
+﻿using MCGateway.Protocol.V759.DataTypes;
 using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.X509;
 using System.Buffers;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
-using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using JTJabba.EasyConfig;
 using JTJabba.Utils;
 using MCGateway.Protocol.Crypto;
+using static MCGateway.Protocol.IMCClientConnection;
 
 namespace MCGateway.Protocol.V759
 {
@@ -20,6 +19,7 @@ namespace MCGateway.Protocol.V759
     public sealed class MCClientConnection<ConnectionCallback> : MCConnection, IMCClientConnection, IClientBoundReceiver
         where ConnectionCallback : IMCClientConnectionCallback
     {
+        
         readonly ILogger _logger = GatewayLogging.CreateLogger<MCClientConnection<ConnectionCallback>>();
         readonly bool _loggedIn = false;
         readonly IMCClientConnectionCallback _callback;
@@ -71,7 +71,10 @@ namespace MCGateway.Protocol.V759
         }
 
 #pragma warning disable CS8618 // Object wont be returned from public method if it isn't valid
-        MCClientConnection(TcpClient tcpClient)
+        MCClientConnection(
+            TcpClient tcpClient,
+            TryAddOnlinePlayer tryAddOnlinePlayerCallback,
+            RemoveOnlinePlayer removeOnlinePlayerCallback)
             : base(tcpClient, Config.BufferSizes.ServerBound, (ulong)DateTime.UtcNow.Ticks)
 #pragma warning restore CS8618
         {
@@ -241,55 +244,71 @@ namespace MCGateway.Protocol.V759
                     UUID = Guid.Parse(authResponse.id);
                 }
 
-                if (!Config.OnlineMode) UUID = Guid.NewGuid();
+                if (!Config.OnlineMode) UUID = Keccak.HashStringToGuid(Username);
 
-                using var callbackCancelSource = new CancellationTokenSource();
-                using var getCallback = ConnectionCallback.GetCallback(
-                    Username, UUID, skin, this, callbackCancelSource.Token);
-
-
-                // Compression packet
-                _logger.LogDebug("writing compression packet");
-                if (GatewayConfig.RequireCompressedFormat || Config.CompressionThreshold >= 0)
+                // Add online player or return if already online
+                if (!tryAddOnlinePlayerCallback.Invoke(Username, UUID))
                 {
-                    _stream.Write(SetCompressionPacket);
-                    _compressionThreshold = Config.CompressionThreshold;
+                    LoginDisconnect(Translation.DefaultTranslation.DisconnectPlayerAlreadyOnline);
+                    return;
                 }
-                _logger.LogDebug("sent compression packet");
-                // Send login success
+
+                // Finish login or remove from online players
+                try
                 {
-                    int offset = Packet.SCRATCHSPACE;
-                    byte[] buffer = ArrayPool<byte>.Shared.Rent(128);
-                    try
+                    using var callbackCancelSource = new CancellationTokenSource();
+                    using var getCallback = ConnectionCallback.GetCallback(
+                        Username, UUID, skin, this, callbackCancelSource.Token);
+
+
+                    // Compression packet
+                    _logger.LogDebug("writing compression packet");
+                    if (GatewayConfig.RequireCompressedFormat || Config.CompressionThreshold >= 0)
                     {
-                        buffer[offset++] = 0x02; // Packet id
-                        UUID.TryWriteBytes(buffer.AsSpan(offset)); // UUID
-                        offset += 16;
-                        offset += Packet.WriteString(buffer.AsSpan(offset), Username); // Username
-                        buffer[offset++] = 0x00; // Number of properties
+                        _stream.Write(SetCompressionPacket);
+                        _compressionThreshold = Config.CompressionThreshold;
                     }
-                    catch
+                    _logger.LogDebug("sent compression packet");
+                    // Send login success
                     {
-                        ArrayPool<byte>.Shared.Return(buffer);
-                        throw;
+                        int offset = Packet.SCRATCHSPACE;
+                        byte[] buffer = ArrayPool<byte>.Shared.Rent(128);
+                        try
+                        {
+                            buffer[offset++] = 0x02; // Packet id
+                            UUID.TryWriteBytes(buffer.AsSpan(offset)); // UUID
+                            offset += 16;
+                            offset += Packet.WriteString(buffer.AsSpan(offset), Username); // Username
+                            buffer[offset++] = 0x00; // Number of properties
+                        }
+                        catch
+                        {
+                            ArrayPool<byte>.Shared.Return(buffer);
+                            throw;
+                        }
+
+                        WritePacket(new Packet(buffer, offset, 0, 0x02, 1));
                     }
+                    _logger.LogDebug("sent login success");
+                    bool getCallbackComplete = getCallback.Wait(8000);
+                    if (!getCallbackComplete)
+                    {
+                        _logger.LogDebug("getCallback timed out");
+                        callbackCancelSource.Cancel();
+                        Disconnect(Translation.DefaultTranslation.DisconnectBackendTimeout);
+                    }
+                    _logger.LogDebug("Got callback");
+                    _callback = (IMCClientConnectionCallback)getCallback.Result;
+                    ClientTranslation = _callback.GetTranslationsObject();
 
-                    WritePacket(new Packet(buffer, offset, 0, 0x02, 1));
+                    _loggedIn = true;
+                    return;
                 }
-                _logger.LogDebug("sent login success");
-                bool getCallbackComplete = getCallback.Wait(8000);
-                if (!getCallbackComplete)
+                catch
                 {
-                    _logger.LogDebug("getCallback timed out");
-                    callbackCancelSource.Cancel();
-                    Disconnect(Translation.DefaultTranslation.DisconnectBackendTimeout);
+                    removeOnlinePlayerCallback.Invoke(UUID);
+                    throw;
                 }
-                _logger.LogDebug("Got callback");
-                _callback = (IMCClientConnectionCallback)getCallback.Result;
-                ClientTranslation = _callback.GetTranslationsObject();
-
-                _loggedIn = true;
-                return;
             }
 #if DEBUG
             catch (Exception ex) { _logger.LogDebug(ex, $"Exception occurred during login process"); }
@@ -335,10 +354,14 @@ namespace MCGateway.Protocol.V759
         /// <param name="tcpClient"></param>
         /// <returns></returns>
         public static MCClientConnection<MCConnectionCallback>? GetLoggedInClientConnection
-            <MCConnectionCallback>(TcpClient tcpClient)
+            <MCConnectionCallback>(
+            TcpClient tcpClient,
+            TryAddOnlinePlayer tryAddOnlinePlayerCallback,
+            RemoveOnlinePlayer removeOnlinePlayerCallback)
             where MCConnectionCallback : IMCClientConnectionCallback
         {
-            var con = new MCClientConnection<MCConnectionCallback>(tcpClient);
+            var con = new MCClientConnection<MCConnectionCallback>
+                (tcpClient, tryAddOnlinePlayerCallback, removeOnlinePlayerCallback);
             return con._loggedIn ? con : null;
         }
 

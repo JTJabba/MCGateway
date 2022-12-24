@@ -10,15 +10,21 @@
     "ClientBound": 65536,
     "ServerBound": 16384
   },
-  "KeepAlive": {
-    "ClientInitialTimeoutMs": 5000, // Used during handshake and status
-    "ClientEnstablishedTimeoutMs": 20000, // 20 default timeout for MC connections
-    "ClientKeepAliveFrequencyMs": 5000,
-    "ServerTimeoutMs": 5000 // Backend server timeout. Should be lower so connections can be quickly rerouted on a backend failure
+  "Timeouts": { // In milliseconds
+    "Clients": {
+      "InitialTimeout": 5000, // Used during handshake and status
+      "EnstablishedTimeout": 20000, // 20 default timeout for MC connections
+      "KeepAliveFrequency": 5000
+    },
+    "Backend": {
+      "MCServerTimeout": 5000, // Backend mc server timeout. Should be lower so connections can be quickly rerouted on a backend failure
+      "MCClientGetCallback": 5000, // Time for a callback object to be built
+      "AddOnlinePlayer": 3000 // Time to add online player before timing out
+    }
   },
   "CommonClientConnectionStrings": [ "127.0.0.1" ], //Cached to reduce string allocation from loginRequests. Needs to match what client would send
   "yggdrasil_session_pubkey_Path": "Resources/yggdrasil_session_pubkey.der",
-  "OnlineMode": false, // Turn off to completely disable authentication
+  "OnlineMode": true, // Turn off to completely disable authentication
   "EnforceSecureProfile": false, // Whether client must provide public key signed by mojang for chat signing
   "CompressionThreshold": 256,
   "CompressionLevel": 1 // 1-9

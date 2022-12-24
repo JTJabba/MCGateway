@@ -41,7 +41,7 @@ namespace TestGateway1
         public IMCClientConnection? GetLoggedInClientConnection(TcpClient tcpClient)
         {
             return MCGateway.Protocol.V759.MCClientConnection<MCClientConCallback>
-                .GetLoggedInClientConnection<MCClientConCallback>(tcpClient);
+                .GetLoggedInClientConnection<MCClientConCallback>(tcpClient, TryAddOnlinePlayer, RemoveOnlinePlayer);
         }
     }
 }

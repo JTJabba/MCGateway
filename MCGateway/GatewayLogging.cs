@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
-using System.Diagnostics;
 using MCGateway.Protocol;
 
 namespace MCGateway

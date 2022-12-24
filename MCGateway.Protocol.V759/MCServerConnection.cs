@@ -1,8 +1,6 @@
 ﻿using System.Buffers;
-using System.Data;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
-using System.Runtime.Versioning;
 using JTJabba.EasyConfig;
 using Microsoft.Extensions.Logging;
 

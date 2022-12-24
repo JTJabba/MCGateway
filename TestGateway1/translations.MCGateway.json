@@ -6,7 +6,9 @@
       "DisconnectMaxGatewayConnections": "Proxy full",
       "DisconnectPlayerAlreadyOnline": "Player already online!",
       "DisconnectSecureProfileRequired": "Secure profile required!",
+      "DisconnectAuthenticationTimeout": "Authentication request to Mojang timed out",
       "DisconnectAuthenticationFail": "Authentication with Mojang Failed!",
+      "DisconnectBackendTimeout": "Backend service timed out",
       "DisconnectBackendConnectionFail": "Couldn't connect to backend server :("
     }
   ]

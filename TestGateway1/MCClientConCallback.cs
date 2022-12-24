@@ -22,8 +22,8 @@ namespace TestGateway1
             var serverClient = new TcpClient();
             serverClient.ConnectAsync("192.168.0.72", 25565, cancellationToken).AsTask().Wait(cancellationToken);
             serverClient.NoDelay = true;
-            serverClient.ReceiveTimeout = Config.KeepAlive.ServerTimeoutMs;
-            serverClient.SendTimeout = Config.KeepAlive.ServerTimeoutMs;
+            serverClient.ReceiveTimeout = Config.Timeouts.Backend.MCServerTimeout;
+            serverClient.SendTimeout = Config.Timeouts.Backend.MCServerTimeout;
             serverClient.ReceiveBufferSize = Config.BufferSizes.ClientBound;
             serverClient.SendBufferSize = Config.BufferSizes.ServerBound;
             var serverConnection = new MCServerConnection(serverClient, username, uuid, GetTranslationsObject(), selfReceiver);

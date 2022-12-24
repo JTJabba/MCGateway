@@ -1,7 +1,4 @@
-﻿using System.Net.Sockets;
-using System.Runtime.Versioning;
-using JTJabba.EasyConfig;
-using MCGateway.Protocol.V759;
+﻿using JTJabba.EasyConfig;
 
 namespace MCGateway.Protocol.V759
 {
