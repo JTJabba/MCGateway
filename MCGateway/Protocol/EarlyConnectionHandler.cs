@@ -29,19 +29,6 @@ namespace MCGateway.Protocol
             (string ServerAddress, ushort ServerPort, int ProtocolVersion)
             DefaultHandshakeReturn = (string.Empty, 0, 0);
 
-        static void LoadCachedConnectionStrings()
-        {
-            foreach (var conString in Config.CommonClientConnectionStrings)
-                CachedClientConnectionStrings.TryAdd(
-                    conString,
-                    Encoding.UTF8.GetBytes(conString));
-        }
-
-        static EarlyConnectionHandler()
-        {
-            ConfigLoader.AddOnFirstStaticLoadCallback(LoadCachedConnectionStrings);
-        }
-
 
         /// <summary>
         /// Returns true if loginRequested
@@ -211,26 +198,11 @@ namespace MCGateway.Protocol
             {
                 int len = ReadVarInt(buffer, ref currentOffset);
                 if (len > 1020) throw new InvalidDataException("TargetServer string oversized");
-                string? str = null;
                 var bytes = buffer.AsSpan(currentOffset, len);
                 currentOffset += len;
-                foreach (var cachedStr in CachedClientConnectionStrings)
-                    if (bytes.SequenceEqual(cachedStr.Value))
-                    {
-                        str = cachedStr.Key;
-#if DEBUG
-                                _logger.LogDebug("TargetServerString Cache hit '{string}'", str);
-#endif
-                    }
-                if (str == null)
-                {
-                    str = Encoding.UTF8.GetString(bytes);
-#if DEBUG
-                            _logger.LogDebug("TargetServerString Cache miss '{string}'", str);
-#endif
-                    if (str.Length > 255)
-                        throw new InvalidDataException("TargetServer string oversized");
-                }
+                string str = Encoding.UTF8.GetString(bytes);
+                if (str.Length > 255)
+                    throw new InvalidDataException("TargetServer string oversized");
                 return str;
             }
 

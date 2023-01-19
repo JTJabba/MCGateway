@@ -34,19 +34,6 @@ namespace MCGateway.Protocol.V759
         public abstract Guid UUID { get; init; }
         public abstract Config.TranslationsObject ClientTranslation { get; set; }
 
-        static void ValidateConfig()
-        {
-            if (GatewayConfig.RequireCompressedFormat)
-            {
-                if (Config.CompressionThreshold <= 0)
-                    throw new ArgumentException(
-                        "GatewayConfig.RequireCompressedFormat is set to true. Config.CompressionThreshold must be greater than 0");
-            }
-        }
-        static MCConnection()
-        {
-            ConfigLoader.AddOnFirstStaticLoadCallback(ValidateConfig);
-        }
 
         protected MCConnection(TcpClient client, int bufferSize, ulong ititializedTimestamp)
         {
@@ -67,7 +54,7 @@ namespace MCGateway.Protocol.V759
             int packetLength = ReadVarInt(out int packetLengthLength);
 
             // Compression disabled
-            if (!GatewayConfig.RequireCompressedFormat && _compressionThreshold <= 0)
+            if (!GatewayConfig.RequireCompressedFormat && _compressionThreshold < 0)
                 return ReadUncompressedPacket();
 
             int dataLength = ReadVarInt(out int dataLengthLength);
@@ -161,7 +148,7 @@ namespace MCGateway.Protocol.V759
                 Span<byte> rawPacket;
 
                 // Compression disabled
-                if (!GatewayConfig.RequireCompressedFormat && _compressionThreshold <= 0)
+                if (!GatewayConfig.RequireCompressedFormat && _compressionThreshold < 0)
                 {
                     int packetLengthLength = Packet.GetVarIntLength(packet.PacketIDAndDataLength);
                     rawPacket =

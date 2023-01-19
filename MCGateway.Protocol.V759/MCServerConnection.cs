@@ -7,11 +7,11 @@ using Microsoft.Extensions.Logging;
 namespace MCGateway.Protocol.V759
 {
     [SkipLocalsInit]
-    public sealed class MCServerConnection : MCConnection, IMCServerConnection, IServerBoundReceiver
+    public sealed class MCServerConnection : MCConnection, IMCServerConnection, IServerboundReceiver
     {
         readonly ILogger _logger = GatewayLogging.CreateLogger<MCServerConnection>();
         bool _loggedIn = false;
-        readonly IClientBoundReceiver _receiver;
+        readonly IClientboundReceiver _receiver;
 
         static readonly byte[] HandshakeBytes;
 
@@ -40,7 +40,7 @@ namespace MCGateway.Protocol.V759
 
 
         public MCServerConnection(
-            TcpClient tcpClient, string username, Guid uuid, Config.TranslationsObject translation, IClientBoundReceiver receiver)
+            TcpClient tcpClient, string username, Guid uuid, Config.TranslationsObject translation, IClientboundReceiver receiver)
             : base(tcpClient, Config.BufferSizes.ClientBound, (ulong)DateTime.UtcNow.Ticks)
         {
             _receiver = receiver;
@@ -125,7 +125,7 @@ namespace MCGateway.Protocol.V759
             {
                 if (GatewayConfig.RequireCompressedFormat)
                 {
-                    if (_compressionThreshold <= 0 && _loggedIn)
+                    if (_compressionThreshold < 0 && _loggedIn)
                     {
                         _logger.LogError("GatewayConfig.RequireCompressedFormat is set to true. Backend servers must use compression");
                         _loggedIn = false;
@@ -139,7 +139,7 @@ namespace MCGateway.Protocol.V759
                 string username,
                 Guid uuid,
                 Config.TranslationsObject translation,
-                IClientBoundReceiver reciever)
+                IClientboundReceiver reciever)
         {
             var con = new MCServerConnection(
                 tcpClient, username, uuid, translation, reciever);
@@ -159,7 +159,7 @@ namespace MCGateway.Protocol.V759
                 {
                     while (true)
                     {
-                        var packet = ReadPacket();
+                        using var packet = ReadPacket();
                         _receiver.Forward(packet);
                     }
                 }

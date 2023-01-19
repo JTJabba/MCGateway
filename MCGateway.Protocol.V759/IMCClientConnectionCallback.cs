@@ -15,7 +15,7 @@ namespace MCGateway.Protocol.V759
         /// <param name="selfRecever"></param>
         /// <returns></returns>
         public static abstract Task<object> GetCallback
-            (string username, Guid uuid, string? skin, IClientBoundReceiver selfRecever, CancellationToken cancellationToken);
+            (string username, Guid uuid, string? skin, IClientboundReceiver selfRecever, CancellationToken cancellationToken);
         
         /// <summary>
         /// Should immediately return.

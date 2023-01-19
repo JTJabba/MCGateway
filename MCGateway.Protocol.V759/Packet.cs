@@ -12,7 +12,7 @@ namespace MCGateway.Protocol.V759
     {
         public const int SCRATCHSPACE = 6;
 
-        private bool _disposed = false;
+        bool _disposed = false;
 
         /// <summary>
         /// Stores scratchspace bytes, decompressed packetID and data, then optionally packet in compressed form
@@ -28,7 +28,8 @@ namespace MCGateway.Protocol.V759
         public readonly int RawCompressedPacketLength { get; init; }
         public readonly int PacketIDAndDataLength { get => RawCompressedPacketOffset - SCRATCHSPACE; }
         public readonly int PacketID { get; init; }
-        
+        int _dataFieldOffset;
+        public ReadOnlySpan<byte> DataField { get => Data.AsSpan(_dataFieldOffset, RawCompressedPacketOffset); }
         /// <summary>
         /// CursorPosition is initialized at beginning of data, after <c>PacketID</c>.
         /// Use MoveCursor to adjust cursor (Compatibility in using blocks)
@@ -54,7 +55,8 @@ namespace MCGateway.Protocol.V759
             RawCompressedPacketOffset = rawCompressedPacketOffset;
             RawCompressedPacketLength = rawCompressedPacketLength;
             PacketID = packetID;
-            CursorPosition = SCRATCHSPACE + packetIDLength;
+            _dataFieldOffset = SCRATCHSPACE + packetIDLength;
+            CursorPosition = _dataFieldOffset;
         }
 
 
@@ -322,7 +324,7 @@ namespace MCGateway.Protocol.V759
 
         public Guid ReadUUID()
         {
-            var value = new Guid(Data.AsSpan(CursorPosition));
+            var value = new Guid(Data.AsSpan(CursorPosition, 16));
             CursorPosition += 16;
             return value;
         }

@@ -7,7 +7,7 @@
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>MCGateway.Protocol.V759</PackageId>
 		<Title>MCGateway.Protocol.V759</Title>
-		<Version>0.0.178-debug</Version>
+		<Version>0.0.180-debug</Version>
 		<Authors>JTJabba</Authors>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>

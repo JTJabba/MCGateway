@@ -1,6 +1,6 @@
 ﻿namespace MCGateway.Protocol.V759
 {
-    public enum ServerboundPacketType : short
+    public enum ServerboundPacketType
     {
         CONFIRM_TELEPORTATION = 0,
         QUERY_BLOCK_ENTITY_TAG = 1,

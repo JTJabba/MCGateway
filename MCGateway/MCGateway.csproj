@@ -37,12 +37,7 @@
 
 <!--TODO:
 
-replace shit POC caching method in EarlyConnectionHandler with a uint64 checksum of bytes sequence
-as primary key in dictionary that gets looked up and confirmed against if there's a hit
-
 need to get stopListening implemented correctly
-
-need to check everywhere _compressionThreshold of 0 doesn't disable compression
 
 look into writing packets to stream together for pre play state stuff
 
@@ -55,4 +50,8 @@ troubleshoot online mode authentication failing with 'Got null or zero length re
 add clean logging for 'System.Net.Sockets.SocketException (111): Connection refused' when can't connect to backend server
 
 add GatewayLogging.Config switch for troubleshooting early MCClientConnections
+
+remove code in packet meant for reading from it directly (CursorPosition, stateful reading methods) and refactor reliant code
+
+move common code from protocol versions to one namespace
 -->

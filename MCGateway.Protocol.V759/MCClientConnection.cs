@@ -16,7 +16,7 @@ using static MCGateway.Protocol.IMCClientConnection;
 namespace MCGateway.Protocol.V759
 {
     [SkipLocalsInit]
-    public sealed class MCClientConnection<ConnectionCallback> : MCConnection, IMCClientConnection, IClientBoundReceiver
+    public sealed class MCClientConnection<ConnectionCallback> : MCConnection, IMCClientConnection, IClientboundReceiver
         where ConnectionCallback : IMCClientConnectionCallback
     {
         
@@ -132,28 +132,26 @@ namespace MCGateway.Protocol.V759
                     // Read encryption response
                     byte[] sharedKey;
                     {
+                        using var encryptionResponse = ReadPacketLogin();
+
+                        if (GatewayConfig.Debug.CheckPacketIDsDuringLogin)
                         {
-                            using var encryptionResponse = ReadPacketLogin();
-
-                            if (GatewayConfig.Debug.CheckPacketIDsDuringLogin)
+                            if (encryptionResponse.PacketID != 0x01)
                             {
-                                if (encryptionResponse.PacketID != 0x01)
-                                {
-                                    GatewayLogging.LogPacket(
-                                        _logger, LogLevel.Debug, this,
-                                        "Invalid packet ID. Expecting 0x01",
-                                        encryptionResponse.PacketID);
-                                    throw new InvalidDataException();
-                                }
+                                GatewayLogging.LogPacket(
+                                    _logger, LogLevel.Debug, this,
+                                    "Invalid packet ID. Expecting 0x01",
+                                    encryptionResponse.PacketID);
+                                throw new InvalidDataException();
                             }
+                        }
 
-                            encryptionResponse.MoveCursor(2); // Skip key length, always 128
-                            sharedKey = RSAProvider.Decrypt(encryptionResponse.ReadBytes(128).ToArray(), false);
-                            if (encryptionResponse.ReadBool()) // Has verify token
-                            {
-                                encryptionResponse.MoveCursor(1);
-                                if (!encryptionResponse.ReadBytes(4).SequenceEqual(verifyTokenBytes)) return;
-                            }
+                        encryptionResponse.MoveCursor(2); // Skip key length, always 128
+                        sharedKey = RSAProvider.Decrypt(encryptionResponse.ReadBytes(128).ToArray(), false);
+                        if (encryptionResponse.ReadBool()) // Has verify token
+                        {
+                            encryptionResponse.MoveCursor(1);
+                            if (!encryptionResponse.ReadBytes(4).SequenceEqual(verifyTokenBytes)) return;
                         }
                     }
 
@@ -395,7 +393,7 @@ namespace MCGateway.Protocol.V759
                 {
                     while (true)
                     {
-                        var packet = ReadPacket();
+                        using var packet = ReadPacket();
                         _callback.Forward(packet);
                     }
                 }

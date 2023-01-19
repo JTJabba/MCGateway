@@ -1,6 +1,6 @@
 ﻿namespace MCGateway.Protocol.V759
 {
-    public enum ClientboundPacketType : short
+    public enum ClientboundPacketType
     {
         SPAWN_ENTITY = 0,
         SPAWN_EXPERIENCE_ORB = 1,
