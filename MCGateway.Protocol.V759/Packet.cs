@@ -322,7 +322,7 @@ namespace MCGateway.Protocol.V759
             return value;
         }
 
-        public Guid ReadUUID()
+        public Guid ReadUUID() // Casts to .NET's Guid wrong, ToString won't work. Will fix when redoing stuff later
         {
             var value = new Guid(Data.AsSpan(CursorPosition, 16));
             CursorPosition += 16;

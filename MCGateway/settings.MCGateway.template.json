@@ -22,6 +22,7 @@
       "AddOnlinePlayer": 3000 // Time to add online player before timing out
     }
   },
+  "CommonClientConnectionStrings": [ "127.0.0.1" ], //Cached to reduce long living string allocation from loginRequests. Needs to match what client would send
   "yggdrasil_session_pubkey_Path": "Resources/yggdrasil_session_pubkey.der",
   "OnlineMode": true, // Turn off to completely disable authentication
   "EnforceSecureProfile": false, // Whether client must provide public key signed by mojang for chat signing

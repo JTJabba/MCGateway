@@ -90,7 +90,7 @@ namespace MCGateway.Protocol.V759
                         if (loginRequest.PacketID != 0x00)
                         {
                             GatewayLogging.LogPacket(
-                                _logger, LogLevel.Debug, this,
+                                _logger, LogLevel.Debug, true, this,
                                 "Invalid packet ID. Expecting 0x00",
                                 loginRequest.PacketID);
                             throw new InvalidDataException();
@@ -139,7 +139,7 @@ namespace MCGateway.Protocol.V759
                             if (encryptionResponse.PacketID != 0x01)
                             {
                                 GatewayLogging.LogPacket(
-                                    _logger, LogLevel.Debug, this,
+                                    _logger, LogLevel.Debug, true, this,
                                     "Invalid packet ID. Expecting 0x01",
                                     encryptionResponse.PacketID);
                                 throw new InvalidDataException();
@@ -218,16 +218,31 @@ namespace MCGateway.Protocol.V759
                             return;
                         }
 
-                        using var httpResponse = httpRequest.Result;
-
-                        string? responseString = httpResponse.Content.ReadAsStringAsync().Result;
-                        if (responseString is null || responseString.Length == 0)
+                        HttpResponseMessage httpResponse;
+                        try
                         {
-                            if (GatewayLogging.InDebug) _logger.LogDebug("Got null or zero length response");
-                            LoginDisconnect(Translation.DefaultTranslation.DisconnectAuthenticationFail);
+                            httpResponse = httpRequest.Result;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Error authenticating with Mojang endpoint");
                             return;
                         }
-                        authResponse = JsonSerializer.Deserialize<AuthResponse>(httpResponse.Content.ReadAsStringAsync().Result);
+                        try
+                        {
+                            string? responseString = httpResponse.Content.ReadAsStringAsync().Result;
+                            if (responseString is null || responseString.Length == 0)
+                            {
+                                if (GatewayLogging.InDebug) _logger.LogDebug("Got null or zero length response");
+                                LoginDisconnect(Translation.DefaultTranslation.DisconnectAuthenticationFail);
+                                return;
+                            }
+                            authResponse = JsonSerializer.Deserialize<AuthResponse>(httpResponse.Content.ReadAsStringAsync().Result);
+                        }
+                        finally
+                        {
+                            httpResponse.Dispose();
+                        }
                     }
 
                     // Check auth response
@@ -291,9 +306,10 @@ namespace MCGateway.Protocol.V759
                     bool getCallbackComplete = getCallback.Wait(8000);
                     if (!getCallbackComplete)
                     {
-                        _logger.LogDebug("getCallback timed out");
+                        _logger.LogWarning("getCallback timed out");
                         callbackCancelSource.Cancel();
                         Disconnect(Translation.DefaultTranslation.DisconnectBackendTimeout);
+                        return;
                     }
                     _logger.LogDebug("Got callback");
                     _callback = (IMCClientConnectionCallback)getCallback.Result;

@@ -1,0 +1,17 @@
+﻿{
+  "759": {
+    "RemappedIDs": { // "new": "old". Map of new IDs to old IDs for otherwise compatible packets
+      "ClientBound": {
+
+      },
+      "ServerBound": {
+
+      }
+    },
+    "IncompatibleIDs": { // IDs of changed or new packet types this protocol. Including stuff that was remapped
+      "ClientBound": [],
+      "ServerBound": []
+      }
+    }
+  }
+}

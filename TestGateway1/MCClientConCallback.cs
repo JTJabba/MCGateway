@@ -13,14 +13,14 @@ namespace TestGateway1
     {
         bool _disposed;
         ILogger _logger = GatewayLogging.CreateLogger<MCClientConCallback>();
-        IServerBoundReceiver _receiver;
+        IServerboundReceiver _receiver;
         public IMCServerConnection ServerConnection { get; private set; }
 
         public MCClientConCallback(
-            string username, Guid uuid, string? skin, IClientBoundReceiver selfReceiver, CancellationToken cancellationToken)
+            string username, Guid uuid, string? skin, IClientboundReceiver selfReceiver, CancellationToken cancellationToken)
         {
             var serverClient = new TcpClient();
-            serverClient.ConnectAsync("192.168.0.72", 25565, cancellationToken).AsTask().Wait(cancellationToken);
+            serverClient.ConnectAsync("192.168.1.2", 25565, cancellationToken).AsTask().Wait(cancellationToken);
             serverClient.NoDelay = true;
             serverClient.ReceiveTimeout = Config.Timeouts.Backend.MCServerTimeout;
             serverClient.SendTimeout = Config.Timeouts.Backend.MCServerTimeout;
@@ -31,11 +31,11 @@ namespace TestGateway1
             ServerConnection = serverConnection;
         }
         public static Task<object> GetCallback(
-            string username, Guid uuid, string? skin, IClientBoundReceiver selfReceiver, CancellationToken cancellationToken)
+            string username, Guid uuid, string? skin, IClientboundReceiver selfReceiver, CancellationToken cancellationToken)
         {
             return Task.Run(() =>
             {
-                return (object)(new MCClientConCallback(username, uuid, skin, selfReceiver, cancellationToken));
+                return (object)new MCClientConCallback(username, uuid, skin, selfReceiver, cancellationToken);
             });
         }
 

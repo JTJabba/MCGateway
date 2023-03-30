@@ -26,10 +26,13 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="MCGateway" Version="0.0.86" />
 		<PackageReference Include="JTJabba.Utils" Version="0.0.13" />
 		<PackageReference Include="LibDeflate.NET" Version="1.9.1" />
 		<PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\MCGateway\MCGateway.csproj" />
 	</ItemGroup>
 
 </Project>
