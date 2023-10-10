@@ -13,6 +13,6 @@ services:
     environment: 
       - ACCEPT_EULA=Y
     volumes:
-      - B:\docker volumes\gateway\GatewayTestService\SeqData:/data
+      - C:\Users\redbo\DockerVolumes:/data
     ports:
       - 80:80

@@ -20,14 +20,15 @@ namespace TestGateway1
             string username, Guid uuid, string? skin, IClientboundReceiver selfReceiver, CancellationToken cancellationToken)
         {
             var serverClient = new TcpClient();
-            serverClient.ConnectAsync("192.168.1.2", 25565, cancellationToken).AsTask().Wait(cancellationToken);
+            serverClient.ConnectAsync("137.146.155.78", 25565, cancellationToken).AsTask().Wait(cancellationToken);
             serverClient.NoDelay = true;
             serverClient.ReceiveTimeout = Config.Timeouts.Backend.MCServerTimeout;
             serverClient.SendTimeout = Config.Timeouts.Backend.MCServerTimeout;
             serverClient.ReceiveBufferSize = Config.BufferSizes.ClientBound;
             serverClient.SendBufferSize = Config.BufferSizes.ServerBound;
             var serverConnection = new MCServerConnection(serverClient, username, uuid, GetTranslationsObject(), selfReceiver);
-            _receiver = serverConnection;
+            var mainReceiver = new MainReceiver(serverConnection);
+            _receiver = mainReceiver;
             ServerConnection = serverConnection;
         }
         public static Task<object> GetCallback(
