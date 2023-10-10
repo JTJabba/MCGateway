@@ -1,0 +1,15 @@
+need to get stopListening implemented correctly
+
+look into writing packets to stream together for pre play state stuff
+
+add logging for writepacket failing to compress
+
+troubleshoot online mode authentication failing with 'Got null or zero length response' half the time
+
+add clean logging for 'System.Net.Sockets.SocketException (111): Connection refused' when can't connect to backend server
+
+add GatewayLogging.Config switch for troubleshooting early MCClientConnections
+
+remove code in packet meant for reading from it directly (CursorPosition, stateful reading methods) and refactor reliant code
+
+move common code from protocol versions to one namespace

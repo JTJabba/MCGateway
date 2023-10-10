@@ -11,6 +11,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestGateway1", "TestGateway
 EndProject
 Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "GatewayTestService", "GatewayTestService.dcproj", "{C73D3CD9-46DE-479D-A1D7-B58E6CA03C2F}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F9DFB111-46E6-4887-B3DD-DDC69B295C1A}"
+	ProjectSection(SolutionItems) = preProject
+		Todo.txt = Todo.txt
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

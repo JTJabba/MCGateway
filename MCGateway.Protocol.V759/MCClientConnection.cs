@@ -233,7 +233,7 @@ namespace MCGateway.Protocol.V759
                             string? responseString = httpResponse.Content.ReadAsStringAsync().Result;
                             if (responseString is null || responseString.Length == 0)
                             {
-                                if (GatewayLogging.InDebug) _logger.LogDebug("Got null or zero length response");
+                                if (GatewayLogging.InDebug) _logger.LogDebug($"Got {(responseString is null ? "null" : "zero")} length response");
                                 LoginDisconnect(Translation.DefaultTranslation.DisconnectAuthenticationFail);
                                 return;
                             }

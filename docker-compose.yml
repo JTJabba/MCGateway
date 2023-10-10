@@ -13,6 +13,6 @@ services:
     environment: 
       - ACCEPT_EULA=Y
     volumes:
-      - B:\docker volumes\gateway\GatewayTestService\SeqData:/data
+      - A:\docker volumes\gateway\GatewayTestService\SeqData:/data
     ports:
       - 80:80
