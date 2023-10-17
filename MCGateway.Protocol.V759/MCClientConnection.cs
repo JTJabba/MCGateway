@@ -9,7 +9,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using JTJabba.EasyConfig;
-using JTJabba.Utils;
+using MCGateway.Utils.Types;
 using MCGateway.Protocol.Crypto;
 using static MCGateway.Protocol.IMCClientConnection;
 
@@ -120,7 +120,7 @@ namespace MCGateway.Protocol.V759
                 {
                     // Send encryption request
                     Span<byte> verifyTokenBytes = stackalloc byte[4];
-                    ThreadStatics.Random.NextBytes(verifyTokenBytes);
+                    Random.Shared.NextBytes(verifyTokenBytes);
                     {
                         Span<byte> bytes = stackalloc byte[173];
                         EncryptionRequestHeader.CopyTo(bytes);

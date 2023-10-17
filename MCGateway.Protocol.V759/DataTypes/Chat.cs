@@ -1,4 +1,4 @@
-﻿using JTJabba.Utils;
+﻿using MCGateway.Utils.Types;
 
 namespace MCGateway.Protocol.V759.DataTypes
 {

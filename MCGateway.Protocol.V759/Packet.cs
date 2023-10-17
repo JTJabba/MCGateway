@@ -1,4 +1,4 @@
-﻿using JTJabba.Utils;
+﻿using MCGateway.Utils.Types;
 using MCGateway.Protocol.V759.DataTypes;
 using System.Buffers;
 using System.Buffers.Binary;

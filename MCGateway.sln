@@ -16,6 +16,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		Todo.txt = Todo.txt
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MCGateway.Utils", "..\MCGateway.Utils\MCGateway.Utils.csproj", "{992EB644-C0D5-4B97-B4DD-D351CE9A222F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -38,6 +40,10 @@ Global
 		{C73D3CD9-46DE-479D-A1D7-B58E6CA03C2F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C73D3CD9-46DE-479D-A1D7-B58E6CA03C2F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C73D3CD9-46DE-479D-A1D7-B58E6CA03C2F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{992EB644-C0D5-4B97-B4DD-D351CE9A222F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{992EB644-C0D5-4B97-B4DD-D351CE9A222F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{992EB644-C0D5-4B97-B4DD-D351CE9A222F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{992EB644-C0D5-4B97-B4DD-D351CE9A222F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
