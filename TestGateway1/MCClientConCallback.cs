@@ -13,12 +13,13 @@ namespace TestGateway1
     {
         bool _disposed;
         ILogger _logger = GatewayLogging.CreateLogger<MCClientConCallback>();
-        IServerboundReceiver _receiver;
+        IServerboundReceiver _serverBoundReceiver;
         public IMCServerConnection ServerConnection { get; private set; }
 
-        public MCClientConCallback(
-            string username, Guid uuid, string? skin, IClientboundReceiver selfReceiver, CancellationToken cancellationToken)
+        MCClientConCallback(
+            string username, Guid uuid, string? skin, IClientboundReceiver clientBoundReceiver, CancellationToken cancellationToken)
         {
+            // Get TcpClient connected to backend server
             var serverClient = new TcpClient();
             serverClient.ConnectAsync("192.168.1.2", 25565, cancellationToken).AsTask().Wait(cancellationToken);
             serverClient.NoDelay = true;
@@ -26,16 +27,21 @@ namespace TestGateway1
             serverClient.SendTimeout = Config.Timeouts.Backend.MCServerTimeout;
             serverClient.ReceiveBufferSize = Config.BufferSizes.ClientBound;
             serverClient.SendBufferSize = Config.BufferSizes.ServerBound;
-            var serverConnection = new MCServerConnection(serverClient, username, uuid, GetTranslationsObject(), selfReceiver);
-            _receiver = serverConnection;
-            ServerConnection = serverConnection;
+
+            // Wrap connection and initiate
+            var serverConnection = MCServerConnection.GetLoggedInConnection(serverClient, username, uuid, GetTranslationsObject(), clientBoundReceiver);
+
+            if (ServerConnection is null) throw new Exception("Failed to get logged-in server connection");
+
+            _serverBoundReceiver = serverConnection!;
+            ServerConnection = serverConnection!;
         }
         public static Task<object> GetCallback(
-            string username, Guid uuid, string? skin, IClientboundReceiver selfReceiver, CancellationToken cancellationToken)
+            string username, Guid uuid, string? skin, IClientboundReceiver clientBoundReceiver, CancellationToken cancellationToken)
         {
             return Task.Run(() =>
             {
-                return (object)new MCClientConCallback(username, uuid, skin, selfReceiver, cancellationToken);
+                return (object)new MCClientConCallback(username, uuid, skin, clientBoundReceiver, cancellationToken);
             });
         }
 
@@ -46,7 +52,7 @@ namespace TestGateway1
 
         public void Forward(Packet packet)
         {
-            _receiver.Forward(packet);
+            _serverBoundReceiver.Forward(packet);
         }
 
         public Task SetSkin(string skin)
@@ -61,10 +67,9 @@ namespace TestGateway1
             return Task.CompletedTask;
         }
 
-        public Task StartedReceivingCallback()
+        public void StartedReceivingCallback()
         {
             ServerConnection.ReceiveTilClosedAndDispose();
-            return Task.CompletedTask;
         }
 
 

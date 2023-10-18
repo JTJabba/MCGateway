@@ -39,7 +39,7 @@ namespace MCGateway.Protocol.V759
         }
 
 
-        public MCServerConnection(
+        MCServerConnection(
             TcpClient tcpClient, string username, Guid uuid, Config.TranslationsObject translation, IClientboundReceiver receiver)
             : base(tcpClient, Config.BufferSizes.ClientBound, (ulong)DateTime.UtcNow.Ticks)
         {
@@ -134,7 +134,7 @@ namespace MCGateway.Protocol.V759
             }
         }
 
-        public static MCServerConnection? GetLoggedInServerConnection(
+        public static MCServerConnection? GetLoggedInConnection(
                 TcpClient tcpClient,
                 string username,
                 Guid uuid,

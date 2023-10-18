@@ -303,16 +303,24 @@ namespace MCGateway.Protocol.V759
                         WritePacket(new Packet(buffer, offset, 0, 0x02, 1));
                     }
                     _logger.LogDebug("sent login success");
-                    bool getCallbackComplete = getCallback.Wait(8000);
-                    if (!getCallbackComplete)
+                    try
                     {
-                        _logger.LogWarning("getCallback timed out");
-                        callbackCancelSource.Cancel();
-                        Disconnect(Translation.DefaultTranslation.DisconnectBackendTimeout);
-                        return;
+                        bool getCallbackComplete = getCallback.Wait(8000);
+                        if (!getCallbackComplete)
+                        {
+                            _logger.LogWarning("getCallback timed out");
+                            callbackCancelSource.Cancel();
+                            Disconnect(Translation.DefaultTranslation.DisconnectBackendTimeout);
+                            return;
+                        }
                     }
-                    _logger.LogDebug("Got callback");
+                    catch (AggregateException ex)
+                    {
+                        throw new Exception("Exception occured while getting callback", ex);
+                    }
+                    
                     _callback = (IMCClientConnectionCallback)getCallback.Result;
+                    _logger.LogDebug("Got callback");
                     ClientTranslation = _callback.GetTranslationsObject();
 
                     _loggedIn = true;

@@ -1,9 +1,6 @@
-﻿using System.Collections.Concurrent;
-using MCGateway;
+﻿using MCGateway;
 using MCGateway.Protocol;
 using System.Net.Sockets;
-using System.Runtime.Versioning;
-using JTJabba.EasyConfig;
 
 namespace TestGateway1
 {

@@ -27,9 +27,9 @@ namespace MCGateway.Protocol.V759
         public Task SetSkin(string skin, CancellationToken cancellationToken);
         public void Forward(Packet packet);
         /// <summary>
-        /// Used to trigger events when a client switches to play mode. Will be used with a timeout.
+        /// Used to trigger events when a client switches to play mode.
         /// </summary>
         /// <returns></returns>
-        public Task StartedReceivingCallback();
+        public void StartedReceivingCallback();
     }
 }
