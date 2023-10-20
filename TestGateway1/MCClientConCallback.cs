@@ -31,7 +31,7 @@ namespace TestGateway1
             // Wrap connection and initiate
             var serverConnection = MCServerConnection.GetLoggedInConnection(serverClient, username, uuid, GetTranslationsObject(), clientBoundReceiver);
 
-            if (ServerConnection is null) throw new Exception("Failed to get logged-in server connection");
+            if (serverConnection is null) throw new Exception("Failed to get logged-in server connection");
 
             _serverBoundReceiver = serverConnection!;
             ServerConnection = serverConnection!;

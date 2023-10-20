@@ -15,9 +15,9 @@ namespace MCGateway
         readonly CancellationToken stoppingToken;
 
         /// <summary>
-        /// Map of client-facing ports to open connections
+        /// Map of client-UUIDs to open connections
         /// </summary>
-        public ConcurrentDictionary<ushort, GatewayConnection<GatewayConnectionCallback>> Connections { get; } = new();
+        public ConcurrentDictionary<Guid, GatewayConnection<GatewayConnectionCallback>> Connections { get; } = new();
         public bool IsListening { get; private set; }
 
         /// <summary>
@@ -97,7 +97,7 @@ namespace MCGateway
                     client, GatewayConnectionDisposedCallback, stoppingToken);
                     if (gatewayConnection == null) return;
                     
-                    Connections.TryAdd(gatewayConnection.Port, gatewayConnection);
+                    Connections.TryAdd(gatewayConnection.UUID, gatewayConnection);
                 }
                 catch (Exception ex)
                 {
@@ -110,7 +110,7 @@ namespace MCGateway
 
         void GatewayConnectionDisposedCallback(GatewayConnection<GatewayConnectionCallback> con)
         {
-            Connections.Remove(con.Port, out _);
+            Connections.Remove(con.UUID, out _);
         }
 
 

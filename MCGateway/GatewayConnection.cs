@@ -15,7 +15,7 @@ namespace MCGateway
         readonly CancellationToken _stoppingToken;
         readonly Action<GatewayConnection<GatewayConnectionCallback>> _disposedCallback;
         
-        public ushort Port { get; init; }
+        public Guid UUID { get; init; }
         public IGatewayConnectionCallback Callback { get; init; }
         public IMCClientConnection ClientConnection { get; set; }
 
@@ -24,14 +24,13 @@ namespace MCGateway
             IMCClientConnection clientConnection,
             IGatewayConnectionCallback callback,
             Action<GatewayConnection<GatewayConnectionCallback>> disposedCallback,
-            CancellationToken stoppingToken,
-            ushort port)
+            CancellationToken stoppingToken)
         {
             ClientConnection = clientConnection;
             Callback = callback;
             _disposedCallback = disposedCallback;
             _stoppingToken = stoppingToken;
-            Port = port;
+            UUID = clientConnection.UUID;
 
             StartReceive();
         }
@@ -58,34 +57,24 @@ namespace MCGateway
                     return null;
                 }
 
-                ushort? port = null;
                 try
                 {
                     clientCon.Client.SendTimeout = Config.Timeouts.Clients.EnstablishedTimeout;
                     clientCon.Client.ReceiveTimeout = Config.Timeouts.Clients.EnstablishedTimeout;
-
-                    port = (ushort)((IPEndPoint)clientCon.Client.Client.LocalEndPoint!).Port;
                 }
 #if DEBUG
                 catch (Exception ex)
                 {
-                    _logger.LogDebug(ex, "Exception occured while setting up clientCon timeouts and getting port");
+                    _logger.LogDebug(ex, "Exception occured while setting up clientCon timeouts.");
                 }
 #else
                 catch { }
 #endif
-                if (port == null)
-                {
-                    clientCon.Dispose();
-                    return null;
-                }
-
                 return new GatewayConnection<GatewayConnectionCallback>(
                     clientCon,
                     callback,
                     disposedCallback,
-                    stoppingToken,
-                    (ushort)port);
+                    stoppingToken);
 
             }
             catch (MCConnectionClosedException) { }
