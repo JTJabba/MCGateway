@@ -137,7 +137,7 @@ namespace MCGateway.Protocol.V759
         }
 
         /// <summary>
-        /// Writes and disposes a packet. Modifies packet so WILL DISPOSE ON EXCEPTION
+        /// Writes a packet. Will modify packet scratchspace.
         /// </summary>
         /// <param name="packet"></param>
         public void WritePacket(Packet packet)
@@ -203,7 +203,7 @@ namespace MCGateway.Protocol.V759
                         packet.PacketIDAndDataLength);
 
                     rawPacket =
-                        packet.Data.AsSpan(
+                        buffer.AsSpan(
                             dataLengthOffset - packetLengthLength,
                             packetLengthLength + packetLength);
 
