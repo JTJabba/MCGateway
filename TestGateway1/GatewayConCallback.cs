@@ -4,7 +4,7 @@ using System.Net.Sockets;
 
 namespace TestGateway1
 {
-    internal class GatewayConCallback : IGatewayConnectionCallback
+    public class GatewayConCallback : IGatewayConnectionCallback
     {
         static BidirectionalDictionary<string, Guid> OnlinePlayers = new();
         public bool InOfflineMode => false;

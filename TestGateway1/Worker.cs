@@ -1,29 +1,28 @@
-using System.Runtime.Versioning;
 using MCGateway;
-using JTJabba.EasyConfig;
 
 namespace TestGateway1
 {
     public class Worker : BackgroundService
     {
         readonly ILogger<Worker> _logger;
-        readonly ILoggerFactory _loggerFactory;
+        readonly Gateway<GatewayConCallback> _gateway;
 
-        public Worker(ILogger<Worker> logger, ILoggerFactory loggerFactory)
+        public Worker(ILogger<Worker> logger, Gateway<GatewayConCallback> gateway)
         {
             _logger = logger;
-            _loggerFactory = loggerFactory;
-            _loggerFactory.AddFile($"{Directory.GetCurrentDirectory()}\\Logs\\log.txt");
+            _gateway = gateway;
+
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var gateway = new Gateway<GatewayConCallback>(new string[]{"settings.MCGateway.json", "translations.MCGateway.json"}, stoppingToken, _loggerFactory);
-            gateway.StartListening();
+            _gateway.StartListening();
             while (!stoppingToken.IsCancellationRequested)
             {
                 await Task.Delay(3000, stoppingToken);
             }
+            _logger.LogInformation("Cancellation requested. Gateway shutting down...");
+            _gateway.Dispose();
         }
     }
 }

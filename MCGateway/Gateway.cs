@@ -11,8 +11,7 @@ namespace MCGateway
     {
         bool _disposed = false;
         readonly ILogger _logger;
-        TcpListener tcpListener;
-        readonly CancellationToken stoppingToken;
+        TcpListener _tcpListener;
 
         /// <summary>
         /// Map of client-UUIDs to open connections
@@ -25,14 +24,12 @@ namespace MCGateway
         /// Until EasyConfig is updated to support config objects and that is implemented only one instance should be created by a program
         /// </summary>
         /// <param name="configPaths"></param>
-        /// <param name="stoppingToken"></param>
         /// <param name="loggerFactory"></param>
-        public Gateway(string[] configPaths, CancellationToken stoppingToken, ILoggerFactory? loggerFactory = null)
+        public Gateway(string[] configPaths, ILoggerFactory? loggerFactory = null)
         {
             if (loggerFactory != null) GatewayLogging.LoggerFactory = loggerFactory;
             _logger = GatewayLogging.CreateLogger<Gateway<GatewayConnectionCallback>>();
-            this.stoppingToken = stoppingToken;
-            tcpListener = new TcpListener(IPAddress.Any, Config.ListeningPort);
+            _tcpListener = new TcpListener(IPAddress.Any, Config.ListeningPort);
             ConfigLoader.Load(configPaths);
         }
 
@@ -40,10 +37,10 @@ namespace MCGateway
         {
             if (IsListening)
                 throw new InvalidOperationException("Gateway is already running");
-            tcpListener = new(IPAddress.Any, Config.ListeningPort);
-            tcpListener.Start();
+            _tcpListener = new(IPAddress.Any, Config.ListeningPort);
+            _tcpListener.Start();
             IsListening = true;
-            _ = AcceptConnectionsAsync(tcpListener);
+            _ = AcceptConnectionsAsync(_tcpListener);
             _logger.LogInformation("Gateway started listening on port {p}", Config.ListeningPort);
         }
 
@@ -51,10 +48,10 @@ namespace MCGateway
         {
 
             if (!IsListening)
-                throw new InvalidOperationException("Gateway is not running");
+                return;
 
             IsListening = false;
-            tcpListener.Stop();
+            _tcpListener.Stop();
         }
 
         Task AcceptConnectionsAsync(TcpListener listener)
@@ -64,16 +61,20 @@ namespace MCGateway
                 TcpClient? client = null;
                 try
                 {
-                    while (!stoppingToken.IsCancellationRequested && IsListening)
+                    while (IsListening)
                     {
-                        client = null;
-                        client = await listener.AcceptTcpClientAsync(stoppingToken).ConfigureAwait(false);
+                        client = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
                         ConnectionAccepted(client);
+                        client = null;
                     }
                 }
                 catch (Exception ex)
                 {
+                    if (ex is SocketException && !IsListening) return; // Handles stopped listener
                     _logger.LogError(ex, "Failed accepting TCP connection. Gateway stopped listening.");
+                }
+                finally
+                {
                     client?.Close();
                     StopListening();
                 }
@@ -94,7 +95,7 @@ namespace MCGateway
                     client.SendBufferSize = Config.BufferSizes.ClientBound;
 
                     gatewayConnection = GatewayConnection<GatewayConnectionCallback>.GetGatewayConnection(
-                    client, GatewayConnectionDisposedCallback, stoppingToken);
+                    client, GatewayConnectionDisposedCallback);
                     if (gatewayConnection == null) return;
                     
                     Connections.TryAdd(gatewayConnection.UUID, gatewayConnection);
@@ -127,6 +128,7 @@ namespace MCGateway
             }
             if (disposing)
             {
+                StopListening();
                 foreach (var connection in Connections)
                 {
                     connection.Value?.Dispose();

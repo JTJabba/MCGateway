@@ -1,5 +1,4 @@
 ﻿using MCGateway.Protocol;
-using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using JTJabba.EasyConfig;
@@ -12,7 +11,6 @@ namespace MCGateway
     {
         bool _disposed = false;
         static readonly ILogger _logger = GatewayLogging.CreateLogger<GatewayConnection<GatewayConnectionCallback>>();
-        readonly CancellationToken _stoppingToken;
         readonly Action<GatewayConnection<GatewayConnectionCallback>> _disposedCallback;
         
         public Guid UUID { get; init; }
@@ -20,16 +18,14 @@ namespace MCGateway
         public IMCClientConnection ClientConnection { get; set; }
 
 
-        public GatewayConnection(
+        GatewayConnection(
             IMCClientConnection clientConnection,
             IGatewayConnectionCallback callback,
-            Action<GatewayConnection<GatewayConnectionCallback>> disposedCallback,
-            CancellationToken stoppingToken)
+            Action<GatewayConnection<GatewayConnectionCallback>> disposedCallback)
         {
             ClientConnection = clientConnection;
             Callback = callback;
             _disposedCallback = disposedCallback;
-            _stoppingToken = stoppingToken;
             UUID = clientConnection.UUID;
 
             StartReceive();
@@ -37,8 +33,7 @@ namespace MCGateway
 
         public static GatewayConnection<GatewayConnectionCallback>? GetGatewayConnection(
             TcpClient tcpClient,
-            Action<GatewayConnection<GatewayConnectionCallback>> disposedCallback,
-            CancellationToken stoppingToken)
+            Action<GatewayConnection<GatewayConnectionCallback>> disposedCallback)
         {
             IMCClientConnection? clientCon = null;
             try
@@ -73,8 +68,7 @@ namespace MCGateway
                 return new GatewayConnection<GatewayConnectionCallback>(
                     clientCon,
                     callback,
-                    disposedCallback,
-                    stoppingToken);
+                    disposedCallback);
 
             }
             catch (MCConnectionClosedException) { }
