@@ -1,15 +1,28 @@
-need to get stopListening implemented correctly
+HIGH PRIORITY
+
+switch to injecting dependancies as instances/factories instead of using generics (didn't know DI patterns when I started this)
+
+add PingPongReceiver and PingPongService demos to TestGateway
+
+abstract memory-pooling logic away from Packet and remove its dispose logic
+
+LOW PRIORITY
+
+update EasyConfig to support config-defined namespaces so we can use it in Gateway dependees (like TestGateway, which needs EasyConfig)
 
 look into writing packets to stream together for pre play state stuff
 
 add logging for writepacket failing to compress
 
-troubleshoot online mode authentication failing with 'Got null or zero length response' half the time
-
 add clean logging for 'System.Net.Sockets.SocketException (111): Connection refused' when can't connect to backend server
 
 add GatewayLogging.Config switch for troubleshooting early MCClientConnections
 
-remove code in packet meant for reading from it directly (CursorPosition, stateful reading methods) and refactor reliant code
+
+PREP FOR MULTIVERSION MAGIC
 
 move common code from protocol versions to one namespace
+
+create one namespace to hold all unique MC[Clientbound/Serverbound]Connection types and one for all unique packet types, and make source generator that reads from compatibility map json and generates unified namespaces for connection and packet types for each version. Each unified version namespace will just be a bunch of references to the compatible implementations
+
+remove code in Packet meant for reading from it directly (CursorPosition, stateful reading methods) and refactor reliant code
