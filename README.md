@@ -42,7 +42,6 @@ It is currently possible to use Gateway with 1.19 (V759) and write low-level int
 
 These are the current next milestones of development:
  - JTJabba.EasyConfig needs to be updated to support multi-project solutions and more complex configurations. New version is having dependancy handling issues and won't run in Visual Studio... will come back to later.
- - Need to add support for querying `Gateway` objects for connections and injecting traffic into them.
  - Need to move code out of MCGateway.Protocol.V759 that can be shared by version specific implementations, and refactor to prepare for supporting every version. 
  - Compatibility layer for writing strongly-typed multi-version intercepters:
    -  In a json, track new/changed/deleted packets every version
