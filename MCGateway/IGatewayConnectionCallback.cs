@@ -1,4 +1,5 @@
-﻿using MCGateway.Protocol;
+﻿using MCGateway.DataTypes;
+using MCGateway.Protocol;
 using System.Buffers;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
@@ -10,35 +11,27 @@ namespace MCGateway
     {
         public bool InOfflineMode { get; }
 
-        // Return new instance of a callback.
-        public static abstract IGatewayConnectionCallback GetCallback((string serverAddress, ushort serverPort, int protocolVersion) handshake);
+        public IMCClientConnection? GetLoggedInClientConnection(Handshake handshake, TcpClient tcpClient);
 
-
-        // Helper methods 'GetStatusResponseString' and 'GetStatusResponse' are included for building response
         /// <summary>
         /// Returned responses should be used and disgarded immediately.
         /// Implementer is responsible for caching status responses, and keeping spans valid for a period of time.
+        /// Interface helper methods <c>GetStatusResponseString</c> and <c>GetStatusResponseBytes</c> are included for building response.
         /// </summary>
         /// <param name="handshake"></param>
         /// <returns></returns>
-        public static abstract ReadOnlySpan<byte> GetStatusResponse((string ServerAddress, ushort ServerPort, int ProtocolVersion) handshake);
-        
+        public ReadOnlySpan<byte> GetStatusResponse(Handshake handshake);
+
         /// <summary>
         /// Should connect to external logic for tracking online players.
         /// </summary>
         /// <param name="username"></param>
         /// <param name="uuid"></param>
         /// <returns></returns>
-        public static abstract bool TryAddOnlinePlayer(string username, Guid uuid);
+        public bool TryAddOnlinePlayer(string username, Guid uuid);
 
-        public static abstract void RemoveOnlinePlayer(Guid uuid);
+        public void RemoveOnlinePlayer(Guid uuid);
 
-        /// <summary>
-        /// Will return null if it can't get an authenticated client connection.
-        /// </summary>
-        /// <param name="tcpClient"></param>
-        /// <returns></returns>
-        public IMCClientConnection? GetLoggedInClientConnection(TcpClient tcpClient);
 
         #region HELPER_METHODS
 

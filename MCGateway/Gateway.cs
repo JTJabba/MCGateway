@@ -6,17 +6,17 @@ using System.Net.Sockets;
 
 namespace MCGateway
 {
-    public sealed class Gateway<GatewayConnectionCallback> : IDisposable
-        where GatewayConnectionCallback : IGatewayConnectionCallback
+    public sealed class Gateway : IDisposable
     {
         bool _disposed = false;
         readonly ILogger _logger;
+        IGatewayConnectionCallback _callback;
         TcpListener _tcpListener;
 
         /// <summary>
         /// Map of client-UUIDs to open connections
         /// </summary>
-        public ConcurrentDictionary<Guid, GatewayConnection<GatewayConnectionCallback>> Connections { get; } = new();
+        public ConcurrentDictionary<Guid, GatewayConnection> Connections { get; } = new();
         public bool IsListening { get; private set; }
 
         /// <summary>
@@ -25,10 +25,11 @@ namespace MCGateway
         /// </summary>
         /// <param name="configPaths"></param>
         /// <param name="loggerFactory"></param>
-        public Gateway(string[] configPaths, ILoggerFactory? loggerFactory = null)
+        public Gateway(IGatewayConnectionCallback callback, string[] configPaths, ILoggerFactory? loggerFactory = null)
         {
             if (loggerFactory != null) GatewayLogging.LoggerFactory = loggerFactory;
-            _logger = GatewayLogging.CreateLogger<Gateway<GatewayConnectionCallback>>();
+            _logger = GatewayLogging.CreateLogger<Gateway>();
+            _callback = callback;
             _tcpListener = new TcpListener(IPAddress.Any, Config.ListeningPort);
             ConfigLoader.Load(configPaths);
         }
@@ -85,7 +86,7 @@ namespace MCGateway
         {
             Task.Run(() =>
             {
-                GatewayConnection<GatewayConnectionCallback>? gatewayConnection = null;
+                GatewayConnection? gatewayConnection = null;
                 try
                 {
                     client.NoDelay = true;
@@ -94,8 +95,8 @@ namespace MCGateway
                     client.ReceiveBufferSize = Config.BufferSizes.ServerBound;
                     client.SendBufferSize = Config.BufferSizes.ClientBound;
 
-                    gatewayConnection = GatewayConnection<GatewayConnectionCallback>.GetGatewayConnection(
-                    client, GatewayConnectionDisposedCallback);
+                    gatewayConnection = GatewayConnection.GetGatewayConnection(
+                    client, _callback, GatewayConnectionDisposedCallback);
                     if (gatewayConnection == null) return;
                     
                     Connections.TryAdd(gatewayConnection.UUID, gatewayConnection);
@@ -109,7 +110,7 @@ namespace MCGateway
             });
         }
 
-        void GatewayConnectionDisposedCallback(GatewayConnection<GatewayConnectionCallback> con)
+        void GatewayConnectionDisposedCallback(GatewayConnection con)
         {
             Connections.Remove(con.UUID, out _);
         }

@@ -13,7 +13,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddSingleton(provider =>
         {
             var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-            return new Gateway<GatewayConCallback>(new string[] { "settings.MCGateway.json", "translations.MCGateway.json" }, loggerFactory);
+            return new Gateway(new GatewayConCallback(), new string[] { "settings.MCGateway.json", "translations.MCGateway.json" }, loggerFactory);
         });
 
         services.AddHostedService<Worker>();

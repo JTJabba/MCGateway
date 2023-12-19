@@ -1,4 +1,5 @@
 ﻿using MCGateway;
+using MCGateway.DataTypes;
 using MCGateway.Protocol;
 using System.Net.Sockets;
 
@@ -9,12 +10,7 @@ namespace TestGateway1
         static BidirectionalDictionary<string, Guid> OnlinePlayers = new();
         public bool InOfflineMode => false;
 
-        public static IGatewayConnectionCallback GetCallback((string serverAddress, ushort serverPort, int protocolVersion) handshake)
-        {
-            return new GatewayConCallback();
-        }
-
-        public static ReadOnlySpan<byte> GetStatusResponse((string ServerAddress, ushort ServerPort, int ProtocolVersion) handshake)
+        public ReadOnlySpan<byte> GetStatusResponse(Handshake handshake)
         {
             byte[] iconBytes = File.ReadAllBytes("gateway.png");
             string icon = Convert.ToBase64String(iconBytes);
@@ -25,18 +21,19 @@ namespace TestGateway1
             return new ReadOnlySpan<byte>(bytes.buffer, 0, bytes.bytesWritten);
         }
 
-        public static bool TryAddOnlinePlayer(string username, Guid uuid)
+        public bool TryAddOnlinePlayer(string username, Guid uuid)
         {
             return OnlinePlayers.TryAdd(username, uuid);
         }
 
-        public static void RemoveOnlinePlayer(Guid uuid)
+        public void RemoveOnlinePlayer(Guid uuid)
         {
             OnlinePlayers.Inverse.Remove(uuid);
         }
 
-        public IMCClientConnection? GetLoggedInClientConnection(TcpClient tcpClient)
+        public IMCClientConnection? GetLoggedInClientConnection(Handshake handshake, TcpClient tcpClient)
         {
+            if (handshake.ProtocolVersion != 759) return null; // TODO add support for disconnecting player with message
             return MCGateway.Protocol.V759.MCClientConnection<MCClientConCallback>
                 .GetLoggedInClientConnection<MCClientConCallback>(tcpClient, TryAddOnlinePlayer, RemoveOnlinePlayer);
         }

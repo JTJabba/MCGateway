@@ -6,49 +6,49 @@ using JTJabba.EasyConfig;
 namespace MCGateway
 {
     [SkipLocalsInit]
-    public sealed class GatewayConnection<GatewayConnectionCallback> : IDisposable
-        where GatewayConnectionCallback : IGatewayConnectionCallback
+    public sealed class GatewayConnection : IDisposable
     {
         bool _disposed = false;
-        static readonly ILogger _logger = GatewayLogging.CreateLogger<GatewayConnection<GatewayConnectionCallback>>();
-        readonly Action<GatewayConnection<GatewayConnectionCallback>> _disposedCallback;
+        static readonly ILogger _logger = GatewayLogging.CreateLogger<GatewayConnection>();
+        IGatewayConnectionCallback _callback;
+        readonly Action<GatewayConnection> _disposedCallback;
         
         public Guid UUID { get; init; }
-        public IGatewayConnectionCallback Callback { get; init; }
         public IMCClientConnection ClientConnection { get; set; }
 
 
         GatewayConnection(
             IMCClientConnection clientConnection,
             IGatewayConnectionCallback callback,
-            Action<GatewayConnection<GatewayConnectionCallback>> disposedCallback)
+            Action<GatewayConnection> disposedCallback)
         {
             ClientConnection = clientConnection;
-            Callback = callback;
+            _callback = callback;
             _disposedCallback = disposedCallback;
             UUID = clientConnection.UUID;
 
             StartReceive();
         }
 
-        public static GatewayConnection<GatewayConnectionCallback>? GetGatewayConnection(
+        public static GatewayConnection? GetGatewayConnection(
             TcpClient tcpClient,
-            Action<GatewayConnection<GatewayConnectionCallback>> disposedCallback)
+            IGatewayConnectionCallback callback,
+            Action<GatewayConnection> disposedCallback)
         {
             IMCClientConnection? clientCon = null;
             try
             {
-                if (!EarlyConnectionHandler.TryHandleTilLogin<GatewayConnectionCallback>(tcpClient, out var handshake))
+                if (!EarlyConnectionHandler.TryHandleTilLogin(tcpClient, callback, out var handshake))
                 {
                     tcpClient.Close();
                     return null;
                 }
 
-                var callback = GatewayConnectionCallback.GetCallback(handshake);
-                clientCon = callback.GetLoggedInClientConnection(tcpClient);
+                clientCon = callback.GetLoggedInClientConnection(handshake, tcpClient);
 
                 if (clientCon == null)
                 {
+                    tcpClient.Close();
                     return null;
                 }
 
@@ -65,7 +65,7 @@ namespace MCGateway
 #else
                 catch { }
 #endif
-                return new GatewayConnection<GatewayConnectionCallback>(
+                return new GatewayConnection(
                     clientCon,
                     callback,
                     disposedCallback);
@@ -103,7 +103,7 @@ namespace MCGateway
             }
             if (disposing)
             {
-                GatewayConnectionCallback.RemoveOnlinePlayer(ClientConnection.UUID);
+                _callback.RemoveOnlinePlayer(ClientConnection.UUID);
                 ClientConnection.Dispose();
                 try
                 {

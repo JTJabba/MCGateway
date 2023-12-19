@@ -1,10 +1,8 @@
-need to get stopListening implemented correctly
+need to add support to EarlyConnectionHandler to disconnect players with message after handshake and update test gateway to use if it fails getting logged in connection
 
 look into writing packets to stream together for pre play state stuff
 
 add logging for writepacket failing to compress
-
-troubleshoot online mode authentication failing with 'Got null or zero length response' half the time
 
 add clean logging for 'System.Net.Sockets.SocketException (111): Connection refused' when can't connect to backend server
 

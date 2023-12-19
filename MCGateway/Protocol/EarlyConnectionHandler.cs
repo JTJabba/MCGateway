@@ -1,5 +1,4 @@
-﻿using JTJabba.EasyConfig;
-using JTJabba.EasyConfig.Loader;
+﻿using MCGateway.DataTypes;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Net.Sockets;
@@ -25,19 +24,17 @@ namespace MCGateway.Protocol
             0x00, 0x74, 0x00, 0x00, 0x63, 0xdd
         };
 
-        static readonly
-            (string ServerAddress, ushort ServerPort, int ProtocolVersion)
-            DefaultHandshakeReturn = (string.Empty, 0, 0);
+        static readonly Handshake DefaultHandshakeReturn = new(string.Empty, 0, 0);
 
 
         /// <summary>
         /// Returns true if loginRequested
         /// </summary>
-        public static bool TryHandleTilLogin<GatewayConnectionCallback>(
+        public static bool TryHandleTilLogin(
             TcpClient tcpClient,
-            out (string ServerAddress, ushort ServerPort, int ProtocolVersion) handshake
+            IGatewayConnectionCallback callback,
+            out Handshake handshake
             )
-            where GatewayConnectionCallback : IGatewayConnectionCallback
         {
             NetworkStream netstream;
             handshake = DefaultHandshakeReturn;
@@ -68,7 +65,7 @@ namespace MCGateway.Protocol
                         ushort targetServerPort = ReadUShort(handshakePacket, ref currentOffset);
                         nextState = handshakePacket[currentOffset];
 
-                        handshake = (
+                        handshake = new(
                             targetServerAddr,
                             targetServerPort,
                             protocolVersion);
@@ -96,7 +93,7 @@ namespace MCGateway.Protocol
                     }
 
                     // Send Status Response
-                    netstream.Write(GatewayConnectionCallback.GetStatusResponse(handshake));
+                    netstream.Write(callback.GetStatusResponse(handshake));
 
 
                     // Ping request and response

@@ -5,9 +5,9 @@ namespace TestGateway1
     public class Worker : BackgroundService
     {
         readonly ILogger<Worker> _logger;
-        readonly Gateway<GatewayConCallback> _gateway;
+        readonly Gateway _gateway;
 
-        public Worker(ILogger<Worker> logger, Gateway<GatewayConCallback> gateway)
+        public Worker(ILogger<Worker> logger, Gateway gateway)
         {
             _logger = logger;
             _gateway = gateway;
