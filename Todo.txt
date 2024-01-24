@@ -18,6 +18,8 @@ look into writing packets to stream together for pre play state stuff
 
 add logging for writepacket failing to compress
 
+add clean logging for 'System.Net.Sockets.SocketException (111): Connection refused' when can't connect to backend server
+
 
 PREP FOR MULTIVERSION MAGIC
 
