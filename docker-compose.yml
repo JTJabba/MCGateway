@@ -1,18 +1,10 @@
 version: '3.4'
 
 services:
-  testgateway1:
-    image: ${DOCKER_REGISTRY-}testgateway1
+  pingpongdemo:
+    image: pingpongdemo
     build:
       context: .
-      dockerfile: TestGateway1/Dockerfile
+      dockerfile: PingPongDemo/Dockerfile
     ports:
       - 25575:25575
-  SeqServer:
-    image: datalust/seq
-    environment: 
-      - ACCEPT_EULA=Y
-    volumes:
-      - A:\docker volumes\gateway\GatewayTestService\SeqData:/data
-    ports:
-      - 80:80

@@ -1,22 +1,22 @@
 HIGH PRIORITY
 
-add PingPongReceiver and PingPongService demos to TestGateway
-
-need to add support to EarlyConnectionHandler to disconnect players with message after handshake and update test gateway to use if it fails getting logged in connection
+need to add support to EarlyConnectionHandler to disconnect players with message after handshake and update examples to use if it fails getting logged in connection
 
 abstract memory-pooling logic away from Packet and remove its dispose logic
 
+move stuff in MCClientConnection constructor to create method
+
 LOW PRIORITY
 
-update EasyConfig to support config-defined namespaces so we can use it in Gateway dependees (like TestGateway, which needs EasyConfig)
+update EasyConfig to have an IsLoaded property in ConfigLoader and remove hack in config validation
+
+update EasyConfig to support config-defined namespaces and generate partial classes, and merge with GatewayConfig. Should consider scoping config
+
+somehow scope config for components that might be used unconventionally (preferably whole gateway config shouldn't need to be loaded for someone to use MCClientConnection)
 
 look into writing packets to stream together for pre play state stuff
 
 add logging for writepacket failing to compress
-
-add clean logging for 'System.Net.Sockets.SocketException (111): Connection refused' when can't connect to backend server
-
-add GatewayLogging.Config switch for troubleshooting early MCClientConnections
 
 
 PREP FOR MULTIVERSION MAGIC

@@ -103,13 +103,19 @@ namespace MCGateway.Protocol
 
                         // If client didn't understand status response, it will try legacy ping.
                         // If in debug log properly if not assume it understands
-                        if (GatewayLogging.InDebug && packetLength == 0xFE) // Should be 0x09 otherwise
+                        if (packetLength == 0xFE) // Should be 0x09 otherwise
                         {
-                            _logger.LogWarning("Recieved legacy ping after status response. Status response may have been formatted incorrectly");
+                            if (GatewayConfig.Debug.LogHandshakeAndStatusFlow)
+                                _logger.LogWarning("Received legacy ping after status response. Status response may have been formatted incorrectly");
                             netstream.Write(LegacyKickPacket);
                             return false;
                         }
-                        if (packetLength != 0x09) return false;
+                        if (packetLength != 0x09)
+                        {
+                            if (GatewayConfig.Debug.LogHandshakeAndStatusFlow)
+                                _logger.LogWarning($"Received invalid packet length '{packetLength}' for ping request");
+                            return false;
+                        }
 
                         // Read ping request to buffer leaving room to length prefix (for turning into response)
                         Span<byte> pingRequest = stackalloc byte[10];

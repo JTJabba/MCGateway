@@ -1,12 +1,20 @@
 ﻿using JTJabba.EasyConfig;
-using JTJabba.EasyConfig.Loader;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 
 namespace MCGateway
 {
-    public sealed class Gateway : IDisposable
+    public interface IGateway : IDisposable
+    {
+        ConnectionsDictionary Connections { get; }
+        bool IsListening { get; }
+
+        void StartListening();
+        void StopListening();
+    }
+
+    public sealed class Gateway : IGateway
     {
         bool _disposed = false;
         readonly ILogger _logger;
@@ -16,8 +24,15 @@ namespace MCGateway
         /// <summary>
         /// Map of client-UUIDs to open connections
         /// </summary>
-        public ConcurrentDictionary<Guid, GatewayConnection> Connections { get; } = new();
+        public ConnectionsDictionary Connections { get; }
         public bool IsListening { get; private set; }
+
+        static Gateway()
+        {
+            // Gateway not guaranteed entrypoint for library.
+            // Should be called by dependee. Local sanity check.
+            GatewayConfig.StartupChecks();
+        }
 
         /// <summary>
         /// Creating new Gateway instance will currently reload static config and loggerFactory for all instances.
@@ -25,13 +40,13 @@ namespace MCGateway
         /// </summary>
         /// <param name="configPaths"></param>
         /// <param name="loggerFactory"></param>
-        public Gateway(IGatewayConnectionCallback callback, string[] configPaths, ILoggerFactory? loggerFactory = null)
+        public Gateway(IGatewayConnectionCallback callback, ConnectionsDictionary connectionDict, ILoggerFactory? loggerFactory = null)
         {
             if (loggerFactory != null) GatewayLogging.LoggerFactory = loggerFactory;
             _logger = GatewayLogging.CreateLogger<Gateway>();
             _callback = callback;
             _tcpListener = new TcpListener(IPAddress.Any, Config.ListeningPort);
-            ConfigLoader.Load(configPaths);
+            Connections = connectionDict;
         }
 
         public void StartListening()

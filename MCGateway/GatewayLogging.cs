@@ -5,11 +5,6 @@ namespace MCGateway
 {
     public static class GatewayLogging
     {
-#if DEBUG
-        public const bool InDebug = true;
-#else
-        public const bool InDebug = false;
-#endif
         public static ILoggerFactory LoggerFactory { get; internal set; } = new NullLoggerFactory();
         public static ILogger CreateLogger<T>() => LoggerFactory.CreateLogger<T>();
         public static ILogger CreateLogger(string categoryName) => LoggerFactory.CreateLogger(categoryName);
@@ -37,12 +32,6 @@ namespace MCGateway
                 trueIfReadingElseWriting ? "Reading" : "Writing",
                 message
                 );
-        }
-
-        public static class Config
-        {
-            public const bool LogClientInvalidDataException = InDebug & true;
-            public const bool LogServerInvalidDataException = true;
         }
     }
 }

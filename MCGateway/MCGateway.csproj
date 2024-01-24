@@ -24,10 +24,7 @@
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
 		<PackageReference Include="MiNET.fnbt" Version="1.0.22" />
 		<PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <ProjectReference Include="..\..\MCGateway.Utils\MCGateway.Utils.csproj" />
+		<PackageReference Include="LibDeflate.NET" Version="1.19.0" />
 	</ItemGroup>
 
 	<PropertyGroup>
