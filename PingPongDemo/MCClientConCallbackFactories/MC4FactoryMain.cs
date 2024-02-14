@@ -32,7 +32,11 @@ namespace PingPongDemo.MCClientConCallbackFactories
 
             var pingPongReceiver = new PingPongReceiver(_serviceProvider.PingPongService_, uuid, serverConnection);
 
-            return Task.FromResult<IMCClientConCallback>(new MCClientConCallback(pingPongReceiver, serverConnection, Translation.DefaultTranslation));
+            return Task.FromResult<IMCClientConCallback>(
+                new MCClientConCallback(
+                    serverboundReceiver: pingPongReceiver,
+                    serverConnection: serverConnection, 
+                    Translation.DefaultTranslation));
         }
     }
 }
