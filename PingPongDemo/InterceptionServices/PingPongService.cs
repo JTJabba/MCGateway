@@ -19,6 +19,7 @@ namespace PingPongDemo.InterceptionServices
             public static int PacketId;
             public static int PacketIdLength;
 
+            // Builds pong packet. Good API for this comes after multiversion support
             static PongPacketFields()
             {
                 PacketId = 0x5F;
@@ -49,13 +50,18 @@ namespace PingPongDemo.InterceptionServices
 
         public void PingReceived(Guid senderUuid)
         {
-            //return;
+            // Get GatewayConnection, an abstraction over a Minecraft connection
             var gotCon = Connections.TryGetValue(senderUuid,
                 out var gatewayCon);
             if (!gotCon) return;
+
+            // Get the IMCClientConnection, a version-agnostic abstraction of a Minecraft connection
             var genericCon = gatewayCon!.ClientConnection;
+
+            // Check if it implements a receiver interface imported from a specific version library
             if (genericCon is IClientboundReceiver clientCon)
             {
+                // Forward a pong message to the clientCon
                 clientCon.Forward(
                     new Packet(
                         PongPacketFields.Data,
@@ -63,11 +69,10 @@ namespace PingPongDemo.InterceptionServices
                         0,
                         PongPacketFields.PacketId,
                         PongPacketFields.PacketIdLength));
-                // Dont dispose bc we reuse array. Will eventually clean up and remove Dispose from packet
             }
             else
             {
-                // Todo make stronger typed system for this
+                // Todo make version handling for services cleaner
                 _logger.LogError("Client on unsupported connection! Need to make stronger typed system for this!");
             }
         }
