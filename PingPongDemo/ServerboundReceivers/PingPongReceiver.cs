@@ -2,7 +2,7 @@
 using MCGateway.Protocol.Versions.P759_G1_19;
 using PingPongDemo.InterceptionServices;
 
-namespace PingPongDemo
+namespace PingPongDemo.ServerboundReceivers
 {
     internal sealed class PingPongReceiver : IServerboundReceiver
     {
