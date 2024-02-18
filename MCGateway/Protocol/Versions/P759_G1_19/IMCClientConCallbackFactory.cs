@@ -2,6 +2,6 @@
 {
     public interface IMCClientConCallbackFactory
     {
-        public Task<IMCClientConCallback> GetCallback(string username, Guid uuid, string? skin, IClientboundReceiver clientboundReceiver, CancellationToken cancellationToken);
+        public Task<IMCClientConCallback> GetCallback(MCClientConnection clientConnection, CancellationToken cancellationToken);
     }
 }

@@ -139,10 +139,10 @@ namespace MCGateway.Protocol.Versions.P759_G1_19
                 string username,
                 Guid uuid,
                 Config.TranslationsObject translation,
-                IClientboundReceiver reciever)
+                IClientboundReceiver clientboundReceiver)
         {
             var con = new MCServerConnection(
-                tcpClient, username, uuid, translation, reciever);
+                tcpClient, username, uuid, translation, clientboundReceiver);
             return con._loggedIn ? con : null;
         }
 

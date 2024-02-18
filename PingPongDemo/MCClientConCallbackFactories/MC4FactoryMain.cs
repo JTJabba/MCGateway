@@ -15,7 +15,7 @@ namespace PingPongDemo.MCClientConCallbackFactories
             _serviceProvider = new MainFactoryServiceContainer(connectionDict);
         }
 
-        public Task<IMCClientConCallback> GetCallback(string username, Guid uuid, string? skin, IClientboundReceiver clientboundReceiver, CancellationToken cancellationToken)
+        public Task<IMCClientConCallback> GetCallback(MCClientConnection clientConnection, CancellationToken cancellationToken)
         {
             // Get TcpClient connected to backend server
             var serverClient = new TcpClient();
@@ -27,11 +27,19 @@ namespace PingPongDemo.MCClientConCallbackFactories
             serverClient.SendBufferSize = Config.BufferSizes.ServerBound;
 
             // Wrap connection and initiate
-            var serverConnection = MCServerConnection.GetLoggedInConnection(serverClient, username, uuid, Translation.DefaultTranslation, clientboundReceiver);
+            var serverConnection = MCServerConnection.GetLoggedInConnection(
+                serverClient,
+                clientConnection.Username,
+                clientConnection.UUID,
+                Translation.DefaultTranslation,
+                clientboundReceiver: clientConnection);
 
             if (serverConnection is null) throw new Exception("Failed to get logged-in server connection");
 
-            var pingPongReceiver = new PingPongReceiver(_serviceProvider.PingPongService_, uuid, forwardTo: serverConnection);
+            var pingPongReceiver = new PingPongReceiver(
+                _serviceProvider.PingPongService_,
+                clientConnection.UUID,
+                forwardTo: serverConnection);
 
             return Task.FromResult<IMCClientConCallback>(
                 new MCClientConCallback(

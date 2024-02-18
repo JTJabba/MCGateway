@@ -24,7 +24,6 @@ namespace MCGateway.Protocol.Versions.P759_G1_19
 
         static readonly RSACryptoServiceProvider RSAProvider = new(1024);
         static readonly byte[] RSAPublicKey;
-
         /// <summary>
         /// Contains all bytes for encryption request except verify token
         /// </summary>
@@ -35,6 +34,10 @@ namespace MCGateway.Protocol.Versions.P759_G1_19
         public override Guid UUID { get; init; }
         public override Config.TranslationsObject ClientTranslation { get; set; }
         public PlayerPublicKey? PlayerPubKey { get; init; }
+        /// <summary>
+        /// Null if in offline mode
+        /// </summary>
+        public string? Skin { get; init; }
 
         static MCClientConnection()
         {
@@ -114,7 +117,6 @@ namespace MCGateway.Protocol.Versions.P759_G1_19
                     // Ignore rest of packet (optional client provided UUID)
                 }
 
-                string? skin = null;
                 if (Config.OnlineMode)
                 {
                     // Send encryption request
@@ -251,7 +253,7 @@ namespace MCGateway.Protocol.Versions.P759_G1_19
                         return;
                     }
                     if (GatewayConfig.Debug.LogLoginConnectionFlow) _logger.LogDebug("Authenticated!");
-                    skin = authResponse.properties[0].value;
+                    Skin = authResponse.properties[0].value;
                     UUID = Guid.Parse(authResponse.id);
                 }
 
@@ -268,8 +270,7 @@ namespace MCGateway.Protocol.Versions.P759_G1_19
                 try
                 {
                     using var callbackCancelSource = new CancellationTokenSource();
-                    using var getCallback = callbackFactory.GetCallback(
-                        Username, UUID, skin, this, callbackCancelSource.Token);
+                    using var getCallback = callbackFactory.GetCallback(this, callbackCancelSource.Token);
 
 
                     // Compression packet

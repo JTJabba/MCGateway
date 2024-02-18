@@ -4,8 +4,6 @@ namespace MCGateway.Protocol.Versions.P759_G1_19
 {
     public interface IMCClientConCallback : IDisposable
     {
-        public IMCServerConnection ServerConnection { get; }
-
         /// <summary>
         /// Should immediately return.
         /// </summary>
