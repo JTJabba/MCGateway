@@ -6,6 +6,18 @@
     }
   },
   "ListeningPort": 25575,
+  "Services": {
+    "MainService": {
+      "Port": 25565,
+      "IP": "172.17.80.1"
+    },
+    "ChatService": {
+      "Port": 25585,
+      "IP": "172.17.80.1",
+      "PrivateKey": "C:\\Users\\redbo\\source\\repos\\JTJabba\\MC-Gateway\\PingPongDemo\\crypto\\private.key",
+      "ServerCredential": "C:\\Users\\redbo\\source\\repos\\JTJabba\\MC-Gateway\\PingPongDemo\\crypto\\server.crt"
+    }
+  },
   "BufferSizes": { //BufferSizes should be kept under large object heap threshold (default 85kB)
     "ClientBound": 65536,
     "ServerBound": 16384

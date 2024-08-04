@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option csharp_namespace = "PingPongDemo";
+
+package chatmessage;
+
+// The greeting service definition.
+service ClientChatMessager {
+  // sends the message
+  rpc ReceiveMessage (ClientChatMessageRequest) returns (ClientChatMessageConfirmation);
+}
+
+// The uuid of the player along with the message
+message ClientChatMessageRequest {
+  repeated string uuids = 1;
+  string message = 2;
+}
+
+// The response message containing the greetings.
+message ClientChatMessageConfirmation {
+  string status = 1;
+}

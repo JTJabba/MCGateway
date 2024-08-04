@@ -31,7 +31,7 @@ namespace PingPongDemo.ServerboundReceivers
             }
         }
 
-        bool TryInterceptPing(Packet packet)
+        public bool TryInterceptPing(Packet packet)
         {
             var msg = packet.ReadString();
             if (msg != "ping") return false;

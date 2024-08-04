@@ -36,14 +36,11 @@ namespace PingPongDemo.MCClientConCallbackFactories
 
             if (serverConnection is null) throw new Exception("Failed to get logged-in server connection");
 
-            var pingPongReceiver = new PingPongReceiver(
-                _serviceProvider.PingPongService_,
-                clientConnection.UUID,
-                forwardTo: serverConnection);
+            var mainReceiver = new MainServerboundReceiver(_serviceProvider, serverConnection, clientConnection.UUID);
 
             return Task.FromResult<IMCClientConCallback>(
                 new MCClientConCallback(
-                    serverboundReceiver: pingPongReceiver,
+                    serverboundReceiver: mainReceiver,
                     serverConnection: serverConnection, 
                     Translation.DefaultTranslation));
         }
