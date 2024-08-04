@@ -1,0 +1,13 @@
+﻿{
+  "profiles": {
+    "MCChatService": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://192.168.56.1:25585",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option csharp_namespace = "MCChatService";
+
+package chatmessage;
+
+// The greeting service definition.
+service Messager {
+  // sends the message
+  rpc SendMessage (MessageRequest) returns (MessageConfirmation);
+}
+
+// The uuid of the player along with the message
+message MessageRequest {
+  string uuid = 1;
+  string message = 2;
+}
+
+// The response message containing the greetings.
+message MessageConfirmation {
+  string status = 1;
+}
