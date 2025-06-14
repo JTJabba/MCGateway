@@ -1,5 +1,7 @@
 ﻿using MCGateway;
 using MCGateway.Protocol.Versions.P759_G1_19;
+using MCGateway.Protocol;
+
 using PingPongDemo.InterceptionServices;
 
 namespace PingPongDemo.ServerboundReceivers

@@ -1,4 +1,5 @@
 ﻿using MCGateway;
+using MCGateway.Protocol;
 using MCGateway.Protocol.Versions.P759_G1_19;
 using System.Buffers;
 using System.Text;
