@@ -21,7 +21,7 @@
 	<ItemGroup>
 		<PackageReference Include="FastEnum" Version="1.8.0" />
 		<PackageReference Include="JTJabba.EasyConfig" Version="1.1.0" />
-		<PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.6" />
 		<PackageReference Include="MiNET.fnbt" Version="1.0.22" />
 		<PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
 		<PackageReference Include="LibDeflate.NET" Version="1.19.0" />
