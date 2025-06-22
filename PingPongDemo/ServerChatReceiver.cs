@@ -26,7 +26,7 @@ namespace PingPongDemo
 
         public static void Initialize()
         {
-            //set up the TCPClient to the chat server
+          
 
             string serverIp = Config.Services.ChatService.IP; 
             int serverPort = Config.Services.ChatService.Port; 

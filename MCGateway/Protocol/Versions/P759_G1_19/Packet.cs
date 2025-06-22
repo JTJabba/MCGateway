@@ -154,6 +154,38 @@ namespace MCGateway.Protocol.Versions.P759_G1_19
             }
         }
 
+        public static void WriteLongBigEndian(long value, Span<byte> target)
+        {
+            for (int i = 0; i < 8; i++)
+                target[i] = (byte)(value >> (56 - 8 * i));
+        }
+
+        /// <summary>
+        /// Writes Guid to buffer.
+        /// </summary>
+        /// <returns>The number of bytes written</returns>
+        public static void WriteGuidBigEndian(Guid guid, Span<byte> target)
+        {
+            byte[] bytes = guid.ToByteArray();
+
+            // Minecraft uses Big Endian, split into two longs: most and least significant bits
+            long mostSigBits = BitConverter.ToInt64(bytes, 0);
+            long leastSigBits = BitConverter.ToInt64(bytes, 8);
+
+            // Write most significant bits (first 8 bytes) in big endian
+            for (int i = 0; i < 8; i++)
+            {
+                target[i] = (byte)(mostSigBits >> (56 - 8 * i));
+            }
+
+            // Write least significant bits (next 8 bytes) in big endian
+            for (int i = 0; i < 8; i++)
+            {
+                target[8 + i] = (byte)(leastSigBits >> (56 - 8 * i));
+            }
+        }
+
+
         /// <returns>The length in bytes of the int as a VarInt</returns>
         public static int GetVarIntLength(int value)
         {

@@ -1,31 +1,26 @@
 using MCChatService;
 using MCChatService.Services;
-using Grpc.Core;
-using System.Collections.Generic;
-using System.IO;
-using Microsoft.AspNetCore.Builder;
+using MCChatService.Services.ChatResponse;
+using MCService;
 
-var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container.
-builder.Services.AddGrpc();
-
-// Update logging settings if needed
-builder.Logging.AddConsole(); // Ensures logs are written to the console
-builder.Logging.SetMinimumLevel(LogLevel.Information); // Adjust log level as needed
-
-var app = builder.Build();
-
-// Configure the HTTP request pipeline with SSL
-app.UseHsts();
-app.UseRouting();
-app.UseEndpoints(endpoints =>
+public class Program
 {
-    // Map gRPC service
-    endpoints.MapGrpcService<MessagerService>();
+    public static void Main(string[] args)
+    {
+        var serviceContainer = new MCGrpcService();
 
-    // Additional routes can be added if needed
-    endpoints.MapGet("/", () => "Communication with gRPC endpoints must be made through a gRPC client. To learn how to create a client, visit: https://go.microsoft.com/fwlink/?linkid=2086909");
-});
+        serviceContainer.Start(args);
 
-app.Run();
+        var hostAddress = "https://192.168.4.28:25576";
+        var certificateLocation = "C:\\Users\\redbo\\source\\repos\\Kingmo\\MCChatService\\crypto\\server.crt";
+
+        serviceContainer.AddClientConnection<ClientChatMessager.ClientChatMessagerClient>(new ClientConnection(hostAddress, certificateLocation));
+
+        serviceContainer.AddHandler<ClientChatMessagerHandler>();
+
+        serviceContainer.Build<MessagerService>();
+    }
+}
+
+
+

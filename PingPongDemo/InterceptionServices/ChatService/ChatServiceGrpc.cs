@@ -1,4 +1,5 @@
 ﻿using Grpc.Core;
+using MCGateway;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,17 +8,12 @@ using System.Threading.Tasks;
 
 namespace PingPongDemo.InterceptionServices.ChatService
 {
-    internal class ChatServiceGrpc : IHostedService
+    internal class ChatServiceGrpc(ILogger<ChatServiceGrpc> logger, IHostApplicationLifetime appLifetime, ConnectionsDictionary connectionsDictionary) : IHostedService
     {
-        private readonly ILogger<ChatServiceGrpc> _logger;
-        private readonly IHostApplicationLifetime _appLifetime;
-        private Server _server;
-
-        public ChatServiceGrpc(ILogger<ChatServiceGrpc> logger, IHostApplicationLifetime appLifetime)
-        {
-            _logger = logger;
-            _appLifetime = appLifetime;
-        }
+        private readonly ILogger<ChatServiceGrpc> _logger = logger;
+        private readonly IHostApplicationLifetime _appLifetime = appLifetime;
+        private readonly ConnectionsDictionary _connectionsDictionary = connectionsDictionary;
+        private Server? _server;
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
@@ -25,8 +21,14 @@ namespace PingPongDemo.InterceptionServices.ChatService
 
             _server = new Server
             {
-                Services = { ClientChatMessager.BindService(new ClientChatMessagerService()) },
-                Ports = { new ServerPort("localhost", 25576, ServerCredentials.Insecure) }
+                Services = { ClientChatMessager.BindService(new ClientChatMessagerService(_connectionsDictionary)) },
+                Ports = { new ServerPort("0.0.0.0", 25576, new SslServerCredentials(new List<KeyCertificatePair>
+        {
+            new KeyCertificatePair(
+                File.ReadAllText("/app/crypto/server.crt"),  // Correct path using forward slashes
+                File.ReadAllText("/app/crypto/private.key")  // Correct path using forward slashes
+            )
+        })) }
             };
 
             _server.Start();

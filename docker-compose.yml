@@ -8,3 +8,4 @@ services:
       dockerfile: PingPongDemo/Dockerfile
     ports:
       - 25575:25575
+      - 25576:25576

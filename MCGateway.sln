@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.2.32630.192
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MCGateway", "MCGateway\MCGateway.csproj", "{6A45F44F-4AD3-4D50-80EC-355405737AE3}"
+	ProjectSection(ProjectDependencies) = postProject
+		{9999FCA6-F609-42F7-B337-A63350801BCE} = {9999FCA6-F609-42F7-B337-A63350801BCE}
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PingPongDemo", "PingPongDemo\PingPongDemo.csproj", "{B630694D-1D72-481B-866C-7BD7D6E0CAB0}"
 EndProject
@@ -14,7 +17,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{55D49F23-3050-4441-9038-4328CD2B2AD7}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MCChatService", "MCChatService\MCChatService.csproj", "{AB38024B-5263-475D-B931-0070E6E86607}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MCService", "MCService\MCService.csproj", "{9999FCA6-F609-42F7-B337-A63350801BCE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MCChatService", "..\MCChatService\MCChatService.csproj", "{F5090D39-0856-4CE5-FF43-C546E955C81C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -34,10 +39,14 @@ Global
 		{55D49F23-3050-4441-9038-4328CD2B2AD7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{55D49F23-3050-4441-9038-4328CD2B2AD7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{55D49F23-3050-4441-9038-4328CD2B2AD7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{AB38024B-5263-475D-B931-0070E6E86607}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{AB38024B-5263-475D-B931-0070E6E86607}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{AB38024B-5263-475D-B931-0070E6E86607}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{AB38024B-5263-475D-B931-0070E6E86607}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9999FCA6-F609-42F7-B337-A63350801BCE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9999FCA6-F609-42F7-B337-A63350801BCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9999FCA6-F609-42F7-B337-A63350801BCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9999FCA6-F609-42F7-B337-A63350801BCE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F5090D39-0856-4CE5-FF43-C546E955C81C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F5090D39-0856-4CE5-FF43-C546E955C81C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F5090D39-0856-4CE5-FF43-C546E955C81C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F5090D39-0856-4CE5-FF43-C546E955C81C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -24,7 +24,7 @@ namespace PingPongDemo.InterceptionServices
             {
                 PacketId = 0x5F;
                 PacketIdLength = 1;
-                var msgText = $"{{\"text\":\"Pong from Gateway!\",\"color\":\"green\"}}";
+                var msgText = $"{{\"text\":\"Pong from Gateway!\",\"color\":\"white\"}}";
                 var msgLength = Encoding.UTF8.GetByteCount(msgText);
                 var msgLengthLength = Packet.GetVarIntLength(msgLength);
                 var packetLength = PacketIdLength + msgLengthLength + msgLength + 1;
