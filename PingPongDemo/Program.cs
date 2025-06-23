@@ -1,7 +1,9 @@
 using JTJabba.EasyConfig.Loader;
 using MCGateway;
 using MCGateway.Protocol.Versions.P759_G1_19;
+using PingPongDemo.InterceptionServices;
 using PingPongDemo.InterceptionServices.ChatService;
+using PingPongDemo.InterceptionServices.Services;
 using PingPongDemo.MCClientConCallbackFactories;
 
 namespace PingPongDemo
@@ -29,6 +31,8 @@ namespace PingPongDemo
             LoadConfig();
             GatewayConfig.StartupChecks();
             services.AddSingleton<ConnectionsDictionary>();
+            services.AddSingleton<ServiceManager>();
+            services.AddSingleton<ChatService>();
             services.AddHostedService<ChatServiceGrpc>();
             services.AddSingleton<IMCClientConCallbackFactory, MC4FactoryMain>();
             services.AddSingleton<IGatewayConnectionCallback, GatewayConCallback>();

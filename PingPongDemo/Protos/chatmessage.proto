@@ -4,10 +4,13 @@ option csharp_namespace = "PingPongDemo";
 
 package chatmessage;
 
-// The greeting service definition.
 service Messager {
   // sends the message
   rpc SendMessage (MessageRequest) returns (MessageConfirmation);
+  // alerts ChatService of new Player
+  rpc AddPlayer (PlayerJoinRequest) returns (MessageConfirmation); 
+  // alerts ChatService of Player leaving
+  rpc RemovePlayer (PlayerLeaveRequest) returns (MessageConfirmation);
 }
 
 // The uuid of the player along with the message
@@ -19,4 +22,15 @@ message MessageRequest {
 // The response message containing the greetings.
 message MessageConfirmation {
   string status = 1;
+}
+
+// The request message for a player joining the chat
+message PlayerJoinRequest {
+  string uuid = 1;
+  string playerName = 2;
+}
+
+message PlayerLeaveRequest {
+  string uuid = 1;
+  string playerName = 2;
 }

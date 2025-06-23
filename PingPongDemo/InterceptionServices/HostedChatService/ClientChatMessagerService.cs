@@ -2,23 +2,24 @@
 using Grpc.Core;
 using MCGateway;
 using MCGateway.Protocol.Versions.P759_G1_19;
+using PingPongDemo.InterceptionServices.Services;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace PingPongDemo.InterceptionServices.ChatService
 {
     internal class ClientChatMessagerService(ConnectionsDictionary connectionsDictionary) : ClientChatMessager.ClientChatMessagerBase
     {
         private readonly ConnectionsDictionary _connectionsDictionary = connectionsDictionary;
+
         public override Task<ClientChatMessageConfirmation> ReceiveMessage(ClientChatMessageRequest request, ServerCallContext context)
         {
             RepeatedField<string> unformatted_uuids = request.Uuids;
-
+              
             foreach (string uuid in unformatted_uuids)
             {
                 Guid userId = Guid.Parse(uuid);

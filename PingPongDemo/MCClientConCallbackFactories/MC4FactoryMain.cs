@@ -1,18 +1,20 @@
 ﻿using JTJabba.EasyConfig;
 using MCGateway;
 using MCGateway.Protocol.Versions.P759_G1_19;
-using PingPongDemo.ServerboundReceivers;
+using PingPongDemo.InterceptionServices;
 using System.Net.Sockets;
 
 namespace PingPongDemo.MCClientConCallbackFactories
 {
     internal sealed class MC4FactoryMain : IMCClientConCallbackFactory
     {
-        MainFactoryServiceContainer _serviceProvider;
+        private readonly MainFactoryServiceContainer _serviceProvider;
+        private readonly ServiceManager _serviceManager;
 
-        public MC4FactoryMain(ConnectionsDictionary connectionDict)
+        public MC4FactoryMain(ConnectionsDictionary connectionDict, ServiceManager serviceManager)
         {
             _serviceProvider = new MainFactoryServiceContainer(connectionDict);
+            _serviceManager = serviceManager;
         }
 
         public Task<IMCClientConCallback> GetCallback(MCClientConnection clientConnection, CancellationToken cancellationToken)
@@ -36,12 +38,12 @@ namespace PingPongDemo.MCClientConCallbackFactories
 
             if (serverConnection is null) throw new Exception("Failed to get logged-in server connection");
 
-            var mainReceiver = new MainServerboundReceiver(_serviceProvider, serverConnection, clientConnection.UUID);
+            var mainReceiver = new MainServerboundReceiver(_serviceProvider, _serviceManager, serverConnection, clientConnection.UUID);
 
             return Task.FromResult<IMCClientConCallback>(
                 new MCClientConCallback(
                     serverboundReceiver: mainReceiver,
-                    serverConnection: serverConnection, 
+                    serverConnection: serverConnection,
                     Translation.DefaultTranslation));
         }
     }

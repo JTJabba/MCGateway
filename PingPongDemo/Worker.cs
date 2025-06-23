@@ -16,13 +16,11 @@ namespace PingPongDemo
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _gateway.StartListening();
-            MainServerboundReceiver.Initialize();
+            _gateway.StartListening();  
             while (!stoppingToken.IsCancellationRequested)
             {
                 await Task.Delay(3000, stoppingToken);
             }
-            MainServerboundReceiver.Close();
             _logger.LogInformation("Cancellation requested. Gateway shutting down...");
             _gateway.Dispose();
         }

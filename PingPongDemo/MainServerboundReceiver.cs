@@ -1,5 +1,6 @@
 ﻿using MCGateway.Protocol.Versions.P759_G1_19;
 using Microsoft.Extensions.DependencyInjection;
+using PingPongDemo.InterceptionServices;
 using PingPongDemo.MCClientConCallbackFactories;
 using PingPongDemo.ServerboundReceivers;
 using System;
@@ -12,24 +13,21 @@ namespace PingPongDemo
 {
     internal class MainServerboundReceiver : IServerboundReceiver
     {
-        IServerboundReceiver _receiver;
-        PingPongReceiver _pingPongReceiver;
-        ServerChatReceiver _chatReceiver;
-        Guid _id;
+        private readonly IServerboundReceiver _receiver;
+        private readonly PingPongReceiver _pingPongReceiver;
+        private readonly ServerChatReceiver _chatReceiver;
+        private readonly ServiceManager _serviceManager;
+        private readonly Guid _id;
 
-        public static void Initialize()
-        {
-            ServerChatReceiver.Initialize();
-        }
-
-        public MainServerboundReceiver(MainFactoryServiceContainer serviceContainer, IServerboundReceiver receiver, Guid Uuid)
+        public MainServerboundReceiver(MainFactoryServiceContainer serviceContainer, ServiceManager serviceManager, IServerboundReceiver receiver, Guid Uuid)
         {
             _id = Uuid;
             _receiver = receiver;
-            _chatReceiver = new ServerChatReceiver(Uuid);
+            _chatReceiver = new ServerChatReceiver(Uuid, serviceManager);
             _pingPongReceiver = new PingPongReceiver(serviceContainer.PingPongService_,
                 Uuid,
                 forwardTo: receiver);
+            _serviceManager = serviceManager;
         }
 
         public void Dispose()
@@ -43,7 +41,7 @@ namespace PingPongDemo
             {
 
                 case 0x04:
-                    if (!_pingPongReceiver.TryInterceptPing(packet)) _chatReceiver.AcceptChatMessagePacket(packet);
+                    if (!_pingPongReceiver.TryInterceptPing(packet)) _chatReceiver.AcceptChatMessage(packet);
                     break;
                 default:
                     _receiver.Forward(packet);
@@ -51,9 +49,5 @@ namespace PingPongDemo
             }
         }
 
-        public static void Close()
-        {
-            ServerChatReceiver.Close();
-        }
     }
 }

@@ -11,19 +11,18 @@ using JTJabba.EasyConfig;
 using System.Threading.Tasks;
 using System.Net.Security;
 using MCGateway.Protocol.Versions.P759_G1_19;
+using PingPongDemo.InterceptionServices;
+using PingPongDemo.InterceptionServices.Services;
 
 namespace PingPongDemo
 {
     public class ServerChatReceiver 
     {
 
-        private static Messager.MessagerClient? Client;
-        private static GrpcChannel? Channel;
-        private static ILogger Logger = GatewayLogging.CreateLogger<ServerChatReceiver>();
-        private static readonly List<Task<MessageConfirmation>> replyTasks = new List<Task<MessageConfirmation>>();
-        private static CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
         Guid _id; 
-
+        ServiceManager _serviceManager;
+        ChatService _chatService;
+        /*
         public static void Initialize()
         {
           
@@ -59,75 +58,81 @@ namespace PingPongDemo
             //begin the reply confirmation task
             Task.Run(() => ProcessMessagesAsync(cancellationTokenSource.Token));
 
-        }
+        }*/
 
-        public ServerChatReceiver(Guid id)
+        public ServerChatReceiver(Guid id, ServiceManager serviceManager)
         {
-            if (Channel == null)
-                Logger.LogWarning("Chat Service is not connected, yet is trying to talk");
-               
             _id = id;
+            _serviceManager = serviceManager;
+            _chatService = serviceManager.GetServiceFromRegistry<ChatService>();
+
         }
 
-      
-
-        public void Dispose()
+        public void AcceptChatMessage(Packet packet)
         {
-            
+            _chatService.AcceptChatMessagePacket(packet, _id);
         }
 
-        public void AcceptChatMessagePacket(Packet packet)
-        {
-            string message = packet.ReadString();
-            Logger.LogInformation(message);
+        /*
 
-            var reply = Client?.SendMessageAsync(new MessageRequest { Uuid = _id.ToString(), Message = message });
+          public void Dispose()
+          {
 
-            if (reply == null)
-            {
-                Logger.LogError("Reply received was null");
-                return;
-            }
+          }
 
-            replyTasks.Add(reply.ResponseAsync);
-        }
+          public void AcceptChatMessagePacket(Packet packet)
+          {
+              string message = packet.ReadString();
+              Logger.LogInformation(message);
 
-        public static async Task ProcessMessagesAsync(CancellationToken cancellationToken)
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                if (!replyTasks.Any())
-                {
-                    await Task.Delay(100); // Wait for a short while before checking again.
-                    continue;
-                }
+              var reply = Client?.SendMessageAsync(new MessageRequest { Uuid = _id.ToString(), Message = message });
 
-                Task<MessageConfirmation> completedTask = await Task.WhenAny(replyTasks);
+              if (reply == null)
+              {
+                  Logger.LogError("Reply received was null");
+                  return;
+              }
 
-                if (completedTask.IsCompletedSuccessfully)
-                {
-                    MessageConfirmation reply = await completedTask;
-                    ProcessReply(reply);
-                    replyTasks.Remove(completedTask); // Remove the specific completed task
-                }
-                else if (completedTask.IsFaulted)
-                {
-                    Logger.LogError(completedTask.Exception, "Error processing reply.");
-                    replyTasks.Remove(completedTask); // Remove the specific faulted task
-                }
-            }
-        }
+              replyTasks.Add(reply.ResponseAsync);
+          }
+
+          public static async Task ProcessMessagesAsync(CancellationToken cancellationToken)
+          {
+              while (!cancellationToken.IsCancellationRequested)
+              {
+                  if (!replyTasks.Any())
+                  {
+                      await Task.Delay(100); // Wait for a short while before checking again.
+                      continue;
+                  }
+
+                  Task<MessageConfirmation> completedTask = await Task.WhenAny(replyTasks);
+
+                  if (completedTask.IsCompletedSuccessfully)
+                  {
+                      MessageConfirmation reply = await completedTask;
+                      ProcessReply(reply);
+                      replyTasks.Remove(completedTask); // Remove the specific completed task
+                  }
+                  else if (completedTask.IsFaulted)
+                  {
+                      Logger.LogError(completedTask.Exception, "Error processing reply.");
+                      replyTasks.Remove(completedTask); // Remove the specific faulted task
+                  }
+              }
+          }
 
 
-        private static void ProcessReply(MessageConfirmation reply)
-        {
-            Logger.LogInformation("Received reply: " + reply.Status);
-        }
+          private static void ProcessReply(MessageConfirmation reply)
+          {
+              Logger.LogInformation("Received reply: " + reply.Status);
+          }
 
-        public static void Close()
-        {
-            cancellationTokenSource.Cancel();
-            Channel?.ShutdownAsync();
-        }
+          public static void Close()
+          {
+              cancellationTokenSource.Cancel();
+              Channel?.ShutdownAsync();
+          }
+        */
     }
 }
